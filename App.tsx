@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth } from './firebaseConfig';
-import { Loader2, CheckCircle2, Users, ShieldCheck } from 'lucide-react';
+import { auth, db } from './firebaseConfig';
+import { ref, push, set } from 'firebase/database';
+import { Loader2, CheckCircle2, Users, ShieldCheck, Send } from 'lucide-react';
 import Hero from './components/Hero';
 import Footer from './components/Footer';
 import Dashboard from './components/Dashboard';
@@ -17,6 +18,10 @@ const App: React.FC = () => {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
 
+  // Contact Form State
+  const [contactForm, setContactForm] = useState({ name: '', mobile: '', message: '' });
+  const [contactLoading, setContactLoading] = useState(false);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
@@ -24,6 +29,45 @@ const App: React.FC = () => {
     });
     return () => unsubscribe();
   }, []);
+
+  const scrollToSection = (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    const element = document.getElementById(id);
+    if (element) {
+      const headerOffset = 80;
+      const elementPosition = element.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.scrollY - headerOffset;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: "smooth"
+      });
+    }
+  };
+
+  const handleContactSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setContactLoading(true);
+
+    try {
+      const enquiryRef = push(ref(db, 'enquiries'));
+      await set(enquiryRef, {
+        id: enquiryRef.key,
+        name: contactForm.name,
+        mobile: contactForm.mobile,
+        message: contactForm.message,
+        date: new Date().toLocaleString()
+      });
+      
+      alert('Thank you! Your enquiry has been sent. Our team will contact you shortly.');
+      setContactForm({ name: '', mobile: '', message: '' });
+    } catch (error) {
+      console.error("Error sending enquiry", error);
+      alert('Failed to send message. Please try again.');
+    } finally {
+      setContactLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -49,7 +93,7 @@ const App: React.FC = () => {
           <nav className="bg-white py-4 px-6 shadow-sm flex justify-between items-center sticky top-0 z-50 h-[80px]">
             <div 
               className="flex items-center gap-2 text-blue-900 cursor-pointer group" 
-              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              onClick={(e) => scrollToSection(e, 'home')}
             >
                <span className="bg-blue-800 p-1.5 rounded text-white group-hover:bg-blue-700 transition">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
@@ -57,10 +101,10 @@ const App: React.FC = () => {
               <span className="text-2xl font-bold tracking-tight">SparkPe</span>
             </div>
             <div className="hidden md:flex gap-[50px]">
-              <a href="#home" className="text-lg font-bold text-gray-700 hover:text-blue-800 transition-colors">Home</a>
-              <a href="#services" className="text-lg font-bold text-gray-700 hover:text-blue-800 transition-colors">Services</a>
-              <a href="#about" className="text-lg font-bold text-gray-700 hover:text-blue-800 transition-colors">About Us</a>
-              <a href="#contact" className="text-lg font-bold text-gray-700 hover:text-blue-800 transition-colors">Contact</a>
+              <a href="#home" onClick={(e) => scrollToSection(e, 'home')} className="text-lg font-bold text-gray-700 hover:text-blue-800 transition-colors">Home</a>
+              <a href="#services" onClick={(e) => scrollToSection(e, 'services')} className="text-lg font-bold text-gray-700 hover:text-blue-800 transition-colors">Services</a>
+              <a href="#about" onClick={(e) => scrollToSection(e, 'about')} className="text-lg font-bold text-gray-700 hover:text-blue-800 transition-colors">About Us</a>
+              <a href="#contact" onClick={(e) => scrollToSection(e, 'contact')} className="text-lg font-bold text-gray-700 hover:text-blue-800 transition-colors">Contact</a>
             </div>
             <button 
               onClick={() => setIsLoginModalOpen(true)}
@@ -182,6 +226,62 @@ const App: React.FC = () => {
                         Join Now
                     </button>
                 </div>
+            </div>
+            
+            {/* Contact Form Section */}
+            <div id="contact-form" className="py-20 bg-white scroll-mt-32">
+               <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+                  <div className="text-center mb-12">
+                    <h2 className="text-3xl font-bold text-gray-900">Get in Touch</h2>
+                    <div className="w-20 h-1 bg-blue-600 mx-auto mt-4"></div>
+                    <p className="mt-4 text-gray-600">Have questions about our B2B services? Fill out the form and our team will call you back.</p>
+                  </div>
+                  <div className="bg-gray-50 rounded-2xl p-8 shadow-lg border border-gray-100">
+                    <form className="grid grid-cols-1 md:grid-cols-2 gap-6" onSubmit={handleContactSubmit}>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Your Name</label>
+                        <input 
+                            type="text" 
+                            placeholder="Enter full name" 
+                            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-600 outline-none transition" 
+                            required
+                            value={contactForm.name}
+                            onChange={e => setContactForm({...contactForm, name: e.target.value})}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Mobile Number</label>
+                        <input 
+                            type="text" 
+                            placeholder="Enter mobile number" 
+                            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-600 outline-none transition" 
+                            required 
+                            value={contactForm.mobile}
+                            onChange={e => setContactForm({...contactForm, mobile: e.target.value})}
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Message (Optional)</label>
+                        <textarea 
+                            rows={4} 
+                            placeholder="Tell us about your business or query..." 
+                            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-600 outline-none transition"
+                            value={contactForm.message}
+                            onChange={e => setContactForm({...contactForm, message: e.target.value})}
+                        ></textarea>
+                      </div>
+                      <div className="md:col-span-2 text-center">
+                        <button 
+                            type="submit" 
+                            disabled={contactLoading}
+                            className="bg-blue-800 text-white font-bold py-3.5 px-12 rounded-full hover:bg-blue-900 transition shadow-lg hover:-translate-y-1 transform flex items-center justify-center gap-2 mx-auto disabled:opacity-70"
+                        >
+                           {contactLoading ? <Loader2 className="animate-spin" size={18} /> : <><Send size={18} /> Send Message</>}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+               </div>
             </div>
           </main>
 

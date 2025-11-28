@@ -29,3 +29,11 @@ export interface PaymentRequest {
   date: string;
   userName?: string; // Optional for display
 }
+
+export interface Enquiry {
+  id: string;
+  name: string;
+  mobile: string;
+  message: string;
+  date: string;
+}

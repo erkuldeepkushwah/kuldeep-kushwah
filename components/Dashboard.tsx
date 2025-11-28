@@ -16,10 +16,12 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   const [balance, setBalance] = useState<number>(0);
   const [userName, setUserName] = useState<string>(user.displayName || 'Retailer');
+  // Derive mobile from email (format: mobile@sparkpe.in) as initial state
+  const [userMobile, setUserMobile] = useState<string>(user.email ? user.email.split('@')[0] : '');
   const [activeService, setActiveService] = useState<ServiceItem | null>(null);
   const [isAddMoneyOpen, setIsAddMoneyOpen] = useState(false);
   const [isCommissionOpen, setIsCommissionOpen] = useState(false);
-  const [commissionBalance, setCommissionBalance] = useState(420.00);
+  const [commissionBalance, setCommissionBalance] = useState(0.00);
   
   // Realtime Database listener for user data
   useEffect(() => {
@@ -36,7 +38,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         const data = snapshot.val();
         if (data) {
           if (data.balance !== undefined) setBalance(Number(data.balance));
+          if (data.commission !== undefined) setCommissionBalance(Number(data.commission));
           if (data.displayName) setUserName(data.displayName);
+          if (data.mobile) setUserMobile(data.mobile);
         }
       });
 
@@ -94,7 +98,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
             <div className="flex items-center gap-4 pl-4 md:border-l border-gray-200">
               <div className="text-right hidden sm:block">
                 <div className="text-sm font-bold text-gray-800 capitalize">{userName}</div>
-                <div className="text-xs text-gray-500">ID: {user.uid.substring(0, 6).toUpperCase()}</div>
+                <div className="text-xs text-gray-500">ID: {userMobile || user.uid.substring(0, 6).toUpperCase()}</div>
               </div>
               <button 
                 onClick={handleLogout}
@@ -111,15 +115,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         
-        {/* Header */}
+        {/* Header Section (Greeting Removed) */}
         <div>
-            <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
-            <p className="text-gray-500">Welcome back, <span className="font-semibold">{userName}</span></p>
-            
             {/* Commission Section - Clickable */}
             <button 
                 onClick={() => setIsCommissionOpen(true)}
-                className="mt-4 bg-white border border-blue-100 p-4 rounded-lg flex items-center text-blue-700 text-sm font-medium w-fit hover:bg-blue-50 hover:shadow-md transition-all cursor-pointer group"
+                className="bg-white border border-blue-100 p-4 rounded-lg flex items-center text-blue-700 text-sm font-medium w-fit hover:bg-blue-50 hover:shadow-md transition-all cursor-pointer group"
             >
                 <div className="bg-blue-100 p-2 rounded-full mr-3 group-hover:bg-blue-200 transition">
                     <TrendingUp className="w-5 h-5" />

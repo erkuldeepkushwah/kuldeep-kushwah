@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, CheckCircle, Loader2, Smartphone, Fingerprint, Plane, CreditCard, Search, Calendar, User, MapPin, Download, Wallet, Landmark, QrCode, AlertTriangle, PlayCircle, Info } from 'lucide-react';
+import { X, CheckCircle, Loader2, Smartphone, Fingerprint, Plane, CreditCard, Search, Calendar, User, MapPin, Download, Wallet, Landmark, QrCode, AlertTriangle, PlayCircle, Info, Train, Bus, Hotel, Bed, Clock, Armchair, Phone, Mail, Map, CircleUser, Luggage, Utensils, Coffee, Moon, Minus, Plus, ChevronLeft, ArrowRight, Palmtree, Camera, Ship, ShoppingBag, Tent, Star, Cpu } from 'lucide-react';
 import { ServiceItem } from '../types';
 import { ref, runTransaction } from 'firebase/database';
 import { db } from '../firebaseConfig';
@@ -108,10 +108,65 @@ const MOCK_PLANS = [
   { price: 2999, val: '365 Days', data: '2.5GB/Day', desc: 'Long term validity special' },
 ];
 
+// --- TRAVEL MOCK DATA ---
 const MOCK_FLIGHTS = [
-  { id: 1, airline: 'IndiGo', time: '10:00 AM - 12:30 PM', price: 4500 },
-  { id: 2, airline: 'Air India', time: '02:00 PM - 05:15 PM', price: 5200 },
-  { id: 3, airline: 'Vistara', time: '06:00 PM - 08:30 PM', price: 6100 },
+  { id: 1, provider: 'IndiGo', desc: '10:00 AM - 12:30 PM', price: 4500, type: 'Economy', code: '6E-554' },
+  { id: 2, provider: 'Air India', desc: '02:00 PM - 05:15 PM', price: 5200, type: 'Economy', code: 'AI-889' },
+  { id: 3, provider: 'Vistara', desc: '06:00 PM - 08:30 PM', price: 6100, type: 'Premium Economy', code: 'UK-990' },
+];
+
+const MOCK_BUSES = [
+  { id: 1, provider: 'VRL Travels', desc: '09:00 PM - 06:00 AM', price: 1200, type: 'AC Sleeper' },
+  { id: 2, provider: 'SRS Travels', desc: '10:00 PM - 07:00 AM', price: 800, type: 'Non-AC Seater' },
+  { id: 3, provider: 'Orange Tours', desc: '08:30 PM - 05:00 AM', price: 1500, type: 'Volvo Multi-Axle AC' },
+];
+
+const MOCK_TRAINS = [
+  { id: 1, provider: 'Rajdhani Exp (12951)', desc: '04:30 PM - 08:30 AM', price: 2500, type: '3A' },
+  { id: 2, provider: 'Shatabdi Exp (12002)', desc: '06:00 AM - 12:00 PM', price: 1200, type: 'CC' },
+  { id: 3, provider: 'Duronto Exp (12290)', desc: '08:00 PM - 11:00 AM', price: 900, type: 'SL' },
+];
+
+const MOCK_HOTELS = [
+  { id: 1, provider: 'Hotel Taj Palace', desc: 'Mumbai Central', price: 8500, type: '5 Star' },
+  { id: 2, provider: 'Lemon Tree Premier', desc: 'Andheri East', price: 4200, type: '4 Star' },
+  { id: 3, provider: 'Ginger Hotel', desc: 'Dadar', price: 2500, type: '3 Star' },
+];
+
+const HOLIDAY_NAMES = {
+  2: [
+    "Weekend Escape Package",
+    "2-Day Quick Gateway",
+    "Short Holiday Retreat",
+    "Mini Vacation Trip",
+    "Express Travel Package",
+    "Weekend Refresh Tour"
+  ],
+  5: [
+    "5-Day Explorer Package",
+    "Classic Holiday Tour",
+    "Family Adventure Package",
+    "Complete Getaway Tour",
+    "Signature 5-Day Trip",
+    "Holiday Delight Package"
+  ],
+  7: [
+    "7-Day Grand Holiday Tour",
+    "Premium Week Vacation",
+    "Complete Week Explorer",
+    "Luxury Travel Package",
+    "Full Destination Experience",
+    "Ultimate 7-Day Holiday"
+  ]
+};
+
+const ACTIVITIES = [
+    { id: 'tour', label: 'City Tour', icon: Map, cost: 1500 },
+    { id: 'sight', label: 'Sightseeing', icon: Camera, cost: 1000 },
+    { id: 'beach', label: 'Beach Visit', icon: Palmtree, cost: 500 },
+    { id: 'shop', label: 'Shopping', icon: ShoppingBag, cost: 0 },
+    { id: 'adv', label: 'Adventure', icon: Tent, cost: 2500 },
+    { id: 'cruise', label: 'Cruise/Boat', icon: Ship, cost: 2000 },
 ];
 
 // --- SUB-COMPONENTS ---
@@ -174,6 +229,626 @@ interface FlowProps {
     processPayment: (amount: number) => Promise<boolean>;
 }
 
+const MicroAtmFlow = ({ onSuccess, processPayment, userUid }: { userUid: string } & FlowProps) => {
+    const [step, setStep] = useState(1);
+    const [cardData, setCardData] = useState({ number: '', expiry: '', cvv: '', name: '' });
+    const [mode, setMode] = useState<'CASH' | 'TRANSFER'>('CASH');
+    const [amount, setAmount] = useState('');
+    const [transferMobile, setTransferMobile] = useState('');
+    const [otp, setOtp] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    const handleSaveCard = (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        setTimeout(() => {
+            setLoading(false);
+            setStep(2);
+        }, 1000);
+    };
+
+    const handleProcess = async () => {
+        if (!amount) return;
+        setLoading(true);
+        
+        const txnAmount = parseFloat(amount);
+
+        if (mode === 'TRANSFER') {
+            // TRANSFER FLOW (Debit from Wallet)
+            // Need OTP verification
+            if (step === 2) {
+                // Send OTP simulation
+                setLoading(false);
+                setStep(3); // Go to OTP
+                return;
+            }
+            if (step === 3) {
+                // Verify OTP & Cut Amount
+                const charge = txnAmount * SERVICE_CHARGE_PERCENT;
+                const total = txnAmount + charge;
+                
+                const success = await processPayment(total);
+                if (success) {
+                    onSuccess({
+                        Service: 'Micro ATM Transfer',
+                        CardNumber: `XXXX-XXXX-XXXX-${cardData.number.slice(-4)}`,
+                        Beneficiary: transferMobile,
+                        Amount: `₹${txnAmount.toFixed(2)}`,
+                        ServiceCharge: `₹${charge.toFixed(2)}`,
+                        TotalDeducted: `₹${total.toFixed(2)}`,
+                        Status: 'Success'
+                    });
+                }
+                setLoading(false);
+            }
+        } else {
+            // CASH WITHDRAWAL FLOW (Credit to Wallet)
+            // Retailer gives Cash -> Gets Money in Wallet
+            try {
+                // Simulate Card Processing
+                await new Promise(r => setTimeout(r, 2000));
+
+                const balanceRef = ref(db, `users/${userUid}/balance`);
+                await runTransaction(balanceRef, (current) => {
+                    return (current || 0) + txnAmount;
+                });
+
+                // Add Commission
+                const commRef = ref(db, `users/${userUid}/commission`);
+                await runTransaction(commRef, (current) => {
+                    return (current || 0) + (txnAmount * 0.002); // 0.2% commission for Withdrawal
+                });
+
+                onSuccess({
+                    Service: 'Micro ATM Withdrawal',
+                    CardNumber: `XXXX-XXXX-XXXX-${cardData.number.slice(-4)}`,
+                    CardHolder: cardData.name,
+                    Amount: `₹${txnAmount.toFixed(2)}`,
+                    Commission: `₹${(txnAmount * 0.002).toFixed(2)}`,
+                    Status: 'Success'
+                });
+            } catch (error) {
+                alert("Transaction Failed");
+            } finally {
+                setLoading(false);
+            }
+        }
+    };
+
+    return (
+        <div className="space-y-6 animate-in slide-in-from-right-4">
+            
+            {step === 1 && (
+                <div className="space-y-6">
+                    <div className="bg-gradient-to-r from-blue-700 to-blue-500 rounded-xl p-6 text-white shadow-lg relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-10 -mt-10"></div>
+                        <div className="flex justify-between items-start mb-8">
+                            <Cpu size={32} className="text-yellow-400" />
+                            <span className="font-bold tracking-widest text-lg">Micro ATM</span>
+                        </div>
+                        <div className="mb-4">
+                            <p className="text-sm opacity-80 mb-1">Card Number</p>
+                            <div className="text-2xl font-mono tracking-wider">{cardData.number || 'XXXX XXXX XXXX XXXX'}</div>
+                        </div>
+                        <div className="flex justify-between items-end">
+                            <div>
+                                <p className="text-xs opacity-80 mb-1">Card Holder</p>
+                                <div className="font-bold uppercase">{cardData.name || 'YOUR NAME'}</div>
+                            </div>
+                            <div>
+                                <p className="text-xs opacity-80 mb-1">Expiry</p>
+                                <div className="font-bold">{cardData.expiry || 'MM/YY'}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <form onSubmit={handleSaveCard} className="space-y-4">
+                        <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                            <CreditCard size={18} className="text-blue-600"/> Give your Debit/Credit Card
+                        </h3>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Card Number (16 Digit)</label>
+                            <input required type="text" maxLength={16} placeholder="0000 0000 0000 0000" className="w-full h-10 px-3 border border-gray-300 rounded text-sm outline-none focus:border-blue-500" value={cardData.number} onChange={e => setCardData({...cardData, number: e.target.value.replace(/\D/g,'')})} />
+                        </div>
+                        <div className="flex gap-4">
+                            <div className="flex-1">
+                                <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Valid Thru</label>
+                                <input required type="text" maxLength={5} placeholder="MM/YY" className="w-full h-10 px-3 border border-gray-300 rounded text-sm outline-none focus:border-blue-500" value={cardData.expiry} onChange={e => setCardData({...cardData, expiry: e.target.value})} />
+                            </div>
+                            <div className="flex-1">
+                                <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">CVV</label>
+                                <input required type="password" maxLength={3} placeholder="123" className="w-full h-10 px-3 border border-gray-300 rounded text-sm outline-none focus:border-blue-500" value={cardData.cvv} onChange={e => setCardData({...cardData, cvv: e.target.value.replace(/\D/g,'')})} />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Card Holder Name</label>
+                            <input required type="text" placeholder="Name on Card" className="w-full h-10 px-3 border border-gray-300 rounded text-sm outline-none focus:border-blue-500" value={cardData.name} onChange={e => setCardData({...cardData, name: e.target.value})} />
+                        </div>
+                        <button disabled={loading} className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 shadow-md">
+                            {loading ? <Loader2 className="animate-spin mx-auto"/> : 'Save & Continue'}
+                        </button>
+                    </form>
+                </div>
+            )}
+
+            {(step === 2 || step === 3) && (
+                <div className="space-y-6">
+                    <div className="flex items-center gap-2">
+                        <button onClick={() => setStep(1)} className="p-1 hover:bg-gray-100 rounded-full"><ChevronLeft size={20}/></button>
+                        <h3 className="font-bold text-gray-800">Select Transaction Type</h3>
+                    </div>
+
+                    {/* Mode Selection */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <button 
+                            onClick={() => setMode('CASH')}
+                            className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition ${mode === 'CASH' ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 hover:border-gray-300'}`}
+                        >
+                            <div className={`p-2 rounded-full ${mode === 'CASH' ? 'bg-green-200' : 'bg-gray-100'}`}><Wallet size={24}/></div>
+                            <span className="font-bold text-sm">Cash Withdrawal</span>
+                        </button>
+                        <button 
+                            onClick={() => setMode('TRANSFER')}
+                            className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition ${mode === 'TRANSFER' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 hover:border-gray-300'}`}
+                        >
+                            <div className={`p-2 rounded-full ${mode === 'TRANSFER' ? 'bg-blue-200' : 'bg-gray-100'}`}><Smartphone size={24}/></div>
+                            <span className="font-bold text-sm">Transfer</span>
+                        </button>
+                    </div>
+
+                    <div className="bg-white p-4 border border-gray-200 rounded-xl space-y-4">
+                        {step === 2 && (
+                            <>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Enter Amount</label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-2.5 text-gray-500 font-bold">₹</span>
+                                        <input 
+                                            type="number" 
+                                            autoFocus
+                                            placeholder="0" 
+                                            className="w-full h-10 pl-8 pr-3 border border-gray-300 rounded text-lg font-bold text-gray-800 outline-none focus:border-blue-500" 
+                                            value={amount} 
+                                            onChange={e => setAmount(e.target.value)} 
+                                        />
+                                    </div>
+                                </div>
+
+                                {mode === 'TRANSFER' && (
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Mobile Number</label>
+                                        <input 
+                                            type="text" 
+                                            maxLength={10} 
+                                            placeholder="Enter 10-digit number" 
+                                            className="w-full h-10 px-3 border border-gray-300 rounded text-sm outline-none focus:border-blue-500" 
+                                            value={transferMobile} 
+                                            onChange={e => setTransferMobile(e.target.value.replace(/\D/g,''))} 
+                                        />
+                                    </div>
+                                )}
+                            </>
+                        )}
+
+                        {step === 3 && mode === 'TRANSFER' && (
+                            <div className="space-y-4">
+                                <div className="bg-yellow-50 text-yellow-800 p-3 rounded text-sm">
+                                    OTP Sent to <strong>{transferMobile}</strong>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Enter OTP</label>
+                                    <input 
+                                        type="text" 
+                                        placeholder="XXXX" 
+                                        className="w-full h-10 px-3 border border-gray-300 rounded text-sm outline-none focus:border-blue-500 tracking-widest text-center font-bold" 
+                                        value={otp} 
+                                        onChange={e => setOtp(e.target.value)} 
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        <button 
+                            disabled={loading || !amount || (mode === 'TRANSFER' && !transferMobile)}
+                            onClick={handleProcess} 
+                            className={`w-full text-white py-3 rounded-lg font-bold shadow-md flex justify-center items-center gap-2 ${mode === 'CASH' ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+                        >
+                            {loading ? <Loader2 className="animate-spin"/> : (
+                                step === 3 ? 'Verify & Pay' : (mode === 'TRANSFER' ? 'Send OTP' : 'Withdraw Cash')
+                            )}
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+const CreditCardFlow = ({ onSuccess, processPayment }: FlowProps) => {
+  const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [details, setDetails] = useState({ provider: '', number: '', name: '', amount: '' });
+  const [billDetails, setBillDetails] = useState<any>(null);
+
+  const handleFetch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setTimeout(() => {
+        setBillDetails({
+            due: 15400.50,
+            minDue: 2500.00,
+            date: '15 Oct 2023',
+            name: 'KULDEEP KUSHWAH'
+        });
+        setLoading(false);
+        setStep(2);
+    }, 1500);
+  };
+
+  const handlePay = async () => {
+      setLoading(true);
+      const amount = parseFloat(details.amount);
+      const charge = amount * SERVICE_CHARGE_PERCENT;
+      const total = amount + charge;
+
+      const success = await processPayment(total);
+      if (success) {
+          onSuccess({
+              Service: 'Credit Card Bill',
+              Provider: details.provider,
+              CardNumber: `XXXX-XXXX-XXXX-${details.number.slice(-4)}`,
+              BillAmount: `₹${amount.toFixed(2)}`,
+              ServiceCharge: `₹${charge.toFixed(2)}`,
+              TotalPaid: `₹${total.toFixed(2)}`,
+              Status: 'Success'
+          });
+      }
+      setLoading(false);
+  };
+
+  return (
+      <div className="space-y-4">
+          {step === 1 && (
+              <form onSubmit={handleFetch} className="space-y-4">
+                  <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Select Bank</label>
+                      <select required className="w-full border rounded-lg p-3" onChange={e => setDetails({...details, provider: e.target.value})}>
+                          <option value="">-- Select --</option>
+                          {CC_PROVIDERS.map(p => <option key={p} value={p}>{p}</option>)}
+                      </select>
+                  </div>
+                  <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Card Number</label>
+                      <input required type="text" maxLength={16} className="w-full border rounded-lg p-3" placeholder="Enter 16-digit card number" onChange={e => setDetails({...details, number: e.target.value})} />
+                  </div>
+                  <button disabled={loading} className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold flex justify-center">
+                      {loading ? <Loader2 className="animate-spin"/> : 'Fetch Bill'}
+                  </button>
+              </form>
+          )}
+
+          {step === 2 && billDetails && (
+              <div className="space-y-4 animate-in slide-in-from-right-4">
+                  <div className="bg-blue-50 p-4 rounded-lg space-y-2">
+                      <div className="flex justify-between"><span>Name</span><span className="font-bold">{billDetails.name}</span></div>
+                      <div className="flex justify-between"><span>Total Due</span><span className="font-bold text-red-600">₹{billDetails.due}</span></div>
+                      <div className="flex justify-between"><span>Min Due</span><span className="font-bold">₹{billDetails.minDue}</span></div>
+                      <div className="flex justify-between"><span>Due Date</span><span className="font-bold">{billDetails.date}</span></div>
+                  </div>
+                  
+                  <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Payment Amount</label>
+                      <input type="number" className="w-full border rounded-lg p-3 font-bold" placeholder="Enter Amount" value={details.amount} onChange={e => setDetails({...details, amount: e.target.value})} />
+                  </div>
+
+                  {details.amount && <PaymentSummary amount={parseFloat(details.amount)} />}
+
+                  <button onClick={handlePay} disabled={!details.amount || loading} className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold flex justify-center">
+                      {loading ? <Loader2 className="animate-spin"/> : 'Pay Bill'}
+                  </button>
+              </div>
+          )}
+      </div>
+  );
+};
+
+const BillPaymentFlow = ({ service, onSuccess, processPayment }: { service: ServiceItem } & FlowProps) => {
+    const [step, setStep] = useState(1);
+    const [loading, setLoading] = useState(false);
+    const [biller, setBiller] = useState('');
+    const [consumerId, setConsumerId] = useState('');
+    const [amount, setAmount] = useState('');
+    const [billData, setBillData] = useState<any>(null);
+    const [selectedState, setSelectedState] = useState('');
+
+    const specificData = BILLER_DATA[service.id.toUpperCase().substring(0, 4)] || BILLER_DATA[service.id.toUpperCase()]; 
+    // Handle 'elec' -> 'ELEC', 'gas' -> 'GAS' etc.
+
+    const handleFetchBill = (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        setTimeout(() => {
+            setBillData({
+                name: 'KULDEEP KUSHWAH',
+                amount: Math.floor(Math.random() * 2000) + 500,
+                dueDate: '25 Oct 2023',
+                billDate: '01 Oct 2023'
+            });
+            setLoading(false);
+            setStep(2);
+        }, 1500);
+    };
+
+    const handlePay = async () => {
+        const payAmount = billData ? billData.amount : parseFloat(amount);
+        setLoading(true);
+        const charge = payAmount * SERVICE_CHARGE_PERCENT;
+        const total = payAmount + charge;
+
+        const success = await processPayment(total);
+        if (success) {
+            onSuccess({
+                Service: service.title,
+                Biller: biller,
+                ConsumerID: consumerId,
+                BillAmount: `₹${payAmount.toFixed(2)}`,
+                ServiceCharge: `₹${charge.toFixed(2)}`,
+                TotalPaid: `₹${total.toFixed(2)}`,
+                TransactionID: 'BBPS' + Math.floor(Math.random()*1000000)
+            });
+        }
+        setLoading(false);
+    }
+
+    return (
+        <div className="space-y-4">
+            {step === 1 && (
+                <form onSubmit={handleFetchBill} className="space-y-4">
+                    {specificData?.type === 'grouped' && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Select State</label>
+                            <select className="w-full border rounded-lg p-3" onChange={e => { setSelectedState(e.target.value); setBiller(''); }}>
+                                <option value="">-- Select State --</option>
+                                {Object.keys(specificData.groups).map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                        </div>
+                    )}
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Select Biller</label>
+                        <select required className="w-full border rounded-lg p-3" value={biller} onChange={e => setBiller(e.target.value)}>
+                            <option value="">-- Select Biller --</option>
+                            {specificData?.type === 'grouped' && selectedState 
+                                ? specificData.groups[selectedState]?.map((b: string) => <option key={b} value={b}>{b}</option>)
+                                : specificData?.options?.map((b: string) => <option key={b} value={b}>{b}</option>)
+                            }
+                            {!specificData && <option value="Generic Biller">Generic Biller</option>}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Consumer Number / ID</label>
+                        <input required type="text" className="w-full border rounded-lg p-3" placeholder="Enter Consumer ID" value={consumerId} onChange={e => setConsumerId(e.target.value)} />
+                    </div>
+
+                    <button disabled={loading} className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold flex justify-center">
+                        {loading ? <Loader2 className="animate-spin"/> : 'Fetch Bill'}
+                    </button>
+                </form>
+            )}
+
+            {step === 2 && billData && (
+                <div className="space-y-4 animate-in slide-in-from-right-4">
+                    <div className="bg-blue-50 p-4 rounded-lg space-y-2">
+                        <div className="flex justify-between"><span>Name</span><span className="font-bold">{billData.name}</span></div>
+                        <div className="flex justify-between"><span>Bill Amount</span><span className="font-bold text-blue-700">₹{billData.amount}</span></div>
+                        <div className="flex justify-between text-xs text-gray-500"><span>Due Date</span><span>{billData.dueDate}</span></div>
+                    </div>
+
+                    <PaymentSummary amount={billData.amount} />
+
+                    <button onClick={handlePay} disabled={loading} className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold flex justify-center">
+                        {loading ? <Loader2 className="animate-spin"/> : 'Confirm Payment'}
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+};
+
+const MoneyTransferFlow = ({ onSuccess, processPayment }: FlowProps) => {
+  const [mode, setMode] = useState<'PHONE' | 'BANK' | null>(null);
+  const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    phone: '',
+    accName: '',
+    accNo: '',
+    ifsc: '',
+    transferType: 'IMPS', // IMPS or NEFT
+    amount: ''
+  });
+
+  const handlePay = async () => {
+    setLoading(true);
+    const amt = parseFloat(formData.amount);
+    const charge = amt * SERVICE_CHARGE_PERCENT;
+    const total = amt + charge;
+
+    const success = await processPayment(total);
+    if (success) {
+       onSuccess({
+         Service: 'Money Transfer',
+         Type: mode === 'PHONE' ? 'Mobile Transfer' : 'Bank Transfer',
+         Beneficiary: mode === 'PHONE' ? formData.phone : `${formData.accName} (${formData.accNo})`,
+         Mode: mode === 'BANK' ? formData.transferType : 'UPI',
+         Amount: `₹${amt.toFixed(2)}`,
+         ServiceCharge: `₹${charge.toFixed(2)}`,
+         TotalPaid: `₹${total.toFixed(2)}`,
+         Status: 'Success'
+       });
+    }
+    setLoading(false);
+  };
+
+  // Step 0: Select Mode
+  if (!mode) {
+      return (
+          <div className="space-y-4 animate-in slide-in-from-right-4">
+              <h3 className="font-bold text-gray-800 mb-4">Select Transfer Method</h3>
+              <button 
+                onClick={() => { setMode('PHONE'); setStep(1); }}
+                className="w-full bg-white border-2 border-blue-100 p-4 rounded-xl flex items-center gap-4 hover:border-blue-600 hover:bg-blue-50 transition group text-left"
+              >
+                  <div className="bg-blue-100 p-3 rounded-full text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition">
+                      <Smartphone size={24} />
+                  </div>
+                  <div>
+                      <div className="font-bold text-gray-800">Transfer Using Phone Number</div>
+                      <div className="text-xs text-gray-500">Instant transfer to linked UPI/Mobile</div>
+                  </div>
+              </button>
+
+              <button 
+                onClick={() => { setMode('BANK'); setStep(1); }}
+                className="w-full bg-white border-2 border-green-100 p-4 rounded-xl flex items-center gap-4 hover:border-green-600 hover:bg-green-50 transition group text-left"
+              >
+                  <div className="bg-green-100 p-3 rounded-full text-green-600 group-hover:bg-green-600 group-hover:text-white transition">
+                      <Landmark size={24} />
+                  </div>
+                  <div>
+                      <div className="font-bold text-gray-800">Transfer Using Account Number</div>
+                      <div className="text-xs text-gray-500">Send via IMPS or NEFT using IFSC</div>
+                  </div>
+              </button>
+          </div>
+      )
+  }
+
+  // PHONE FLOW
+  if (mode === 'PHONE') {
+      return (
+          <div className="space-y-5 animate-in slide-in-from-right-4">
+              <div className="flex items-center gap-2 mb-2">
+                 <button onClick={() => setMode(null)} className="text-gray-400 hover:text-gray-800"><ChevronLeft size={20}/></button>
+                 <h3 className="font-bold text-gray-800">Phone Number Transfer</h3>
+              </div>
+
+              {step === 1 && (
+                  <>
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Enter Phone Number</label>
+                        <input 
+                            type="text" maxLength={10} placeholder="10-digit mobile number"
+                            className="w-full border rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500"
+                            value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})}
+                        />
+                    </div>
+                    <button disabled={formData.phone.length < 10} onClick={() => setStep(2)} className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold">Continue</button>
+                  </>
+              )}
+
+              {step === 2 && (
+                  <>
+                    <div className="bg-blue-50 p-3 rounded text-sm text-gray-700">Sending to: <strong>{formData.phone}</strong></div>
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Enter Amount</label>
+                        <input 
+                            type="number" placeholder="₹ Amount"
+                            className="w-full border rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 text-lg font-bold"
+                            value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})}
+                        />
+                    </div>
+                    <button disabled={!formData.amount} onClick={() => setStep(3)} className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold">Proceed</button>
+                  </>
+              )}
+
+              {step === 3 && (
+                  <>
+                     <h4 className="font-bold text-gray-800">Confirm Transfer</h4>
+                     <PaymentSummary amount={parseFloat(formData.amount)} />
+                     <button onClick={handlePay} disabled={loading} className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold flex justify-center items-center gap-2">
+                        {loading ? <Loader2 className="animate-spin"/> : 'Pay Now'}
+                     </button>
+                  </>
+              )}
+          </div>
+      );
+  }
+
+  // BANK FLOW
+  if (mode === 'BANK') {
+      return (
+          <div className="space-y-5 animate-in slide-in-from-right-4">
+              <div className="flex items-center gap-2 mb-2">
+                 <button onClick={() => setMode(null)} className="text-gray-400 hover:text-gray-800"><ChevronLeft size={20}/></button>
+                 <h3 className="font-bold text-gray-800">Bank Transfer</h3>
+              </div>
+
+              {step === 1 && (
+                  <>
+                    <h4 className="text-sm font-bold text-gray-600 uppercase mb-2">Add Beneficiary Details</h4>
+                    <div className="space-y-3">
+                        <input type="text" placeholder="Account Holder Name" className="w-full border rounded-lg p-3" value={formData.accName} onChange={e => setFormData({...formData, accName: e.target.value})} />
+                        <input type="text" placeholder="Account Number" className="w-full border rounded-lg p-3" value={formData.accNo} onChange={e => setFormData({...formData, accNo: e.target.value})} />
+                        <input type="text" placeholder="IFSC Code" className="w-full border rounded-lg p-3 uppercase" value={formData.ifsc} onChange={e => setFormData({...formData, ifsc: e.target.value})} />
+                    </div>
+                    <button disabled={!formData.accNo || !formData.ifsc} onClick={() => setStep(2)} className="w-full bg-green-600 text-white py-3 rounded-lg font-bold mt-2">Add Beneficiary & Continue</button>
+                  </>
+              )}
+
+              {step === 2 && (
+                  <>
+                    <div className="bg-green-50 p-3 rounded text-sm text-gray-700 space-y-1">
+                        <div>Beneficiary: <strong>{formData.accName}</strong></div>
+                        <div>Ac/No: <strong>{formData.accNo}</strong></div>
+                        <div>IFSC: <strong>{formData.ifsc}</strong></div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Transfer Type</label>
+                        <div className="flex gap-4">
+                            <label className="flex items-center gap-2 border p-3 rounded-lg flex-1 cursor-pointer hover:bg-gray-50">
+                                <input type="radio" name="type" value="IMPS" checked={formData.transferType === 'IMPS'} onChange={() => setFormData({...formData, transferType: 'IMPS'})} />
+                                <span className="font-bold">IMPS</span>
+                                <span className="text-xs text-gray-500">(Instant)</span>
+                            </label>
+                            <label className="flex items-center gap-2 border p-3 rounded-lg flex-1 cursor-pointer hover:bg-gray-50">
+                                <input type="radio" name="type" value="NEFT" checked={formData.transferType === 'NEFT'} onChange={() => setFormData({...formData, transferType: 'NEFT'})} />
+                                <span className="font-bold">NEFT</span>
+                                <span className="text-xs text-gray-500">(2-4 hrs)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Enter Amount</label>
+                        <input 
+                            type="number" placeholder="₹ Amount"
+                            className="w-full border rounded-lg p-3 outline-none focus:ring-2 focus:ring-green-500 text-lg font-bold"
+                            value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})}
+                        />
+                    </div>
+                    <button disabled={!formData.amount} onClick={() => setStep(3)} className="w-full bg-green-600 text-white py-3 rounded-lg font-bold">Proceed to Review</button>
+                  </>
+              )}
+
+              {step === 3 && (
+                   <>
+                     <h4 className="font-bold text-gray-800">Confirm Transaction</h4>
+                     <PaymentSummary amount={parseFloat(formData.amount)} />
+                     <button onClick={handlePay} disabled={loading} className="w-full bg-green-600 text-white py-3 rounded-lg font-bold flex justify-center items-center gap-2">
+                        {loading ? <Loader2 className="animate-spin"/> : 'Transfer Now'}
+                     </button>
+                   </>
+              )}
+          </div>
+      );
+  }
+
+  return null;
+}
+
 const MobileDthRecharge = ({ type, onSuccess, processPayment }: { type: 'mobile' | 'dth' } & FlowProps) => {
   const [step, setStep] = useState(1);
   const [operator, setOperator] = useState('');
@@ -219,7 +894,7 @@ const MobileDthRecharge = ({ type, onSuccess, processPayment }: { type: 'mobile'
         <form onSubmit={handleFetchPlans} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Select Operator</label>
-            <select required className="w-full border rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" onChange={e => setOperator(e.target.value)}>
+            <select required className="w-full border rounded-lg p-3" onChange={e => setOperator(e.target.value)}>
               <option value="">-- Select --</option>
               {type === 'mobile' ? OPERATORS.mobile.map(o => <option key={o} value={o}>{o}</option>) 
                                : OPERATORS.dth.map(o => <option key={o} value={o}>{o}</option>)}
@@ -232,7 +907,7 @@ const MobileDthRecharge = ({ type, onSuccess, processPayment }: { type: 'mobile'
               type="text" 
               maxLength={type === 'mobile' ? 10 : 15}
               placeholder={type === 'mobile' ? 'Enter 10-digit number' : 'Enter Subscriber ID'}
-              className="w-full border rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border rounded-lg p-3"
               value={number}
               onChange={e => setNumber(e.target.value)}
             />
@@ -290,7 +965,7 @@ const MobileDthRecharge = ({ type, onSuccess, processPayment }: { type: 'mobile'
   );
 };
 
-// AEPS is slightly different as it usually credits money or is non-transactional in terms of deduction, so we keep it simulated for now but without cost deduction
+// AEPS Flow
 const AepsFlow = ({ onSuccess }: { onSuccess: (data: any) => void }) => {
   const [scanning, setScanning] = useState(false);
   const [formData, setFormData] = useState({ bank: '', aadhaar: '', type: 'Withdrawal', amount: '' });
@@ -496,237 +1171,1030 @@ const SubscriptionFlow = ({ onSuccess, processPayment }: FlowProps) => {
     );
 };
 
-const BillPaymentFlow = ({ category, onSuccess, processPayment }: { category: string } & FlowProps) => {
-  const [step, setStep] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [details, setDetails] = useState({ consumerId: '', amount: '850.00', billerName: '' });
-  const [selectedState, setSelectedState] = useState('');
-
-  const handleFetchBill = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!details.billerName) {
-        alert("Please select a biller");
-        return;
-    }
-    setLoading(true);
-    // Simulate Fetching
-    setTimeout(() => { setLoading(false); setStep(2); }, 1500);
-  };
-
-  const handlePay = async () => {
-    setLoading(true);
-    const amountNum = parseFloat(details.amount);
-    const charge = amountNum * SERVICE_CHARGE_PERCENT;
-    const total = amountNum + charge;
-
-    const success = await processPayment(total);
-    if (success) {
-        onSuccess({
-            Service: category,
-            Biller: details.billerName,
-            ConsumerID: details.consumerId,
-            BaseAmount: `₹${details.amount}`,
-            ServiceCharge: `₹${charge.toFixed(2)}`,
-            TotalPaid: `₹${total.toFixed(2)}`,
-            Status: 'Paid'
-        });
-    }
-    setLoading(false);
-  };
-
-  const billerConfig = BILLER_DATA[category];
-  const isGrouped = billerConfig?.type === 'grouped';
-
-  return (
-    <div>
-        {step === 1 ? (
-            <form onSubmit={handleFetchBill} className="space-y-4">
-                {isGrouped && (
-                  <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Select State</label>
-                      <select 
-                          className="w-full border rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500"
-                          onChange={(e) => {
-                              setSelectedState(e.target.value);
-                              setDetails({...details, billerName: ''});
-                          }}
-                          value={selectedState}
-                          required
-                      >
-                         <option value="">-- Select State --</option>
-                         {Object.keys(billerConfig.groups).map(state => (
-                             <option key={state} value={state}>{state}</option>
-                         ))}
-                      </select>
-                  </div>
-                )}
-
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Select Biller</label>
-                    <select 
-                        className="w-full border rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500"
-                        onChange={(e) => setDetails({...details, billerName: e.target.value})}
-                        value={details.billerName}
-                        required
-                        disabled={isGrouped && !selectedState}
-                    >
-                       <option value="">-- Select Biller --</option>
-                       {isGrouped && selectedState ? (
-                           billerConfig.groups[selectedState].map((opt: string) => (
-                               <option key={opt} value={opt}>{opt}</option>
-                           ))
-                       ) : !isGrouped && billerConfig?.type === 'simple' ? (
-                           billerConfig.options.map((opt: string) => (
-                               <option key={opt} value={opt}>{opt}</option>
-                           ))
-                       ) : !isGrouped && !billerConfig ? (
-                           <>
-                              <option value="Provider A">Provider A</option>
-                              <option value="Provider B">Provider B</option>
-                              <option value="Provider C">Provider C</option>
-                           </>
-                       ) : null}
-                    </select>
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {category === 'FASTAG' ? 'Vehicle Number' : 'Consumer Number / CA Number'}
-                    </label>
-                    <input 
-                        required
-                        type="text" 
-                        placeholder={category === 'FASTAG' ? 'MH01AB1234' : 'Enter Consumer Number'}
-                        className="w-full border rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500"
-                        onChange={e => setDetails({...details, consumerId: e.target.value})}
-                    />
-                </div>
-                <button disabled={loading} className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 flex justify-center">
-                    {loading ? <Loader2 className="animate-spin" /> : 'Fetch Bill Details'}
-                </button>
-            </form>
-        ) : (
-            <div className="space-y-4 animate-in slide-in-from-bottom-4">
-                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                    <p className="text-xs text-gray-500 uppercase font-bold mb-1">Bill Details Found</p>
-                    <div className="flex justify-between mb-2">
-                        <span className="text-gray-600">Biller</span>
-                        <span className="font-semibold">{details.billerName}</span>
-                    </div>
-                    <div className="flex justify-between mb-2">
-                        <span className="text-gray-600">Name</span>
-                        <span className="font-semibold">Rajesh Kumar</span>
-                    </div>
-                    <div className="flex justify-between mb-2">
-                        <span className="text-gray-600">Bill Date</span>
-                        <span className="font-semibold">01 Oct 2023</span>
-                    </div>
-                    <div className="flex justify-between border-t border-blue-200 pt-2 mt-2">
-                        <span className="text-gray-800 font-bold">Bill Amount</span>
-                        <span className="text-xl font-bold text-blue-700">₹{details.amount}</span>
-                    </div>
-                 </div>
-                 
-                 <PaymentSummary amount={parseFloat(details.amount)} />
-
-                 <div className="flex gap-3">
-                    <button onClick={() => setStep(1)} className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold">Back</button>
-                    <button onClick={handlePay} disabled={loading} className="flex-[2] bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 flex items-center justify-center gap-2">
-                        {loading ? <Loader2 className="animate-spin"/> : 'Confirm & Pay'}
-                    </button>
-                 </div>
-            </div>
-        )}
-    </div>
-  );
-};
-
 const TravelFlow = ({ type, onSuccess, processPayment }: { type: string } & FlowProps) => {
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
     const [selectedItem, setSelectedItem] = useState<any>(null);
+    const [searchParams, setSearchParams] = useState({ 
+        from: 'Delhi', 
+        to: 'Mumbai', 
+        city: 'Mumbai', 
+        guests: '1', 
+        date: '',
+        rooms: '1',
+        returnDate: '',
+        tripType: 'ONEWAY',
+        class: 'SL',
+        quota: 'GENERAL'
+    });
     
+    // SPECIFIC STATES
+    const [subStep, setSubStep] = useState(0); 
+    // Flight Logic: 1 (Details) -> 2 (Seats) -> 3 (Addons) -> 4 (Payment)
+    // Bus Logic: 1 (Seats) -> 2 (Details) -> 3 (Payment)
+    // Train/Hotel: 1 (Details) -> 2 (Payment)
+    // Holiday: 1 (Customize) -> 2 (Details) -> 3 (Payment)
+
+    const [passengers, setPassengers] = useState<any[]>([]);
+    const [selectedSeats, setSelectedSeats] = useState<string[]>([]); // For Bus & Flight
+    const [contactInfo, setContactInfo] = useState({ mobile: '', email: '' });
+    
+    // Updated Add-ons State for Flight
+    const [addOns, setAddOns] = useState<{
+        meal: 'Veg' | 'Non-Veg' | null;
+        baggage: 0 | 5 | 10 | 15;
+        insurance: boolean;
+    }>({ meal: null, baggage: 0, insurance: false });
+
+    // Holiday Specific State
+    const [holidayParams, setHolidayParams] = useState<{
+        activities: string[];
+        transport: string[];
+        hotelType: string;
+        mealPlan: string;
+    }>({ activities: [], transport: ['Flight'], hotelType: '3 Star', mealPlan: 'Breakfast' });
+
+    // Holiday Custom Price State
+    const [customHolidayPrice, setCustomHolidayPrice] = useState<number | null>(null);
+
+    // Constants for modes
+    const isHotel = type === 'HOTEL';
+    const isBus = type === 'BUS';
+    const isTrain = type === 'TRAIN';
+    const isFlight = type === 'FLIGHT';
+    const isHoliday = type === 'HOLIDAY';
+
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setTimeout(() => { setLoading(false); setStep(2); }, 1500);
     };
 
+    const getHolidayCalculatedPrice = () => {
+        if (!selectedItem) return 0;
+        let base = selectedItem.price * passengers.length;
+        
+        // Transport
+        if (holidayParams.transport.includes('Flight')) base += (5000 * passengers.length);
+        if (holidayParams.transport.includes('Train')) base += (1500 * passengers.length);
+        if (holidayParams.transport.includes('Bus')) base += (1000 * passengers.length);
+        if (holidayParams.transport.includes('Cab')) base += (8000); 
+
+        // Activity
+        holidayParams.activities.forEach(actId => {
+            const act = ACTIVITIES.find(a => a.id === actId);
+            if(act) base += (act.cost * passengers.length);
+        });
+
+        // Hotel
+        if(holidayParams.hotelType === '4 Star') base += (2500 * passengers.length);
+        if(holidayParams.hotelType === '5 Star') base += (5000 * passengers.length);
+
+        // Meal
+        if(holidayParams.mealPlan === 'Breakfast + Lunch') base += (800 * passengers.length);
+        if(holidayParams.mealPlan === 'Breakfast + Dinner') base += (1000 * passengers.length);
+        if(holidayParams.mealPlan === 'All Meals') base += (1500 * passengers.length);
+
+        return base;
+    }
+
+    // Effect to auto-fill custom price with calculated price when reaching confirmation step
+    useEffect(() => {
+        if (isHoliday && step === 3 && subStep === 3 && customHolidayPrice === null) {
+            setCustomHolidayPrice(getHolidayCalculatedPrice());
+        }
+    }, [isHoliday, step, subStep]);
+
     const initiateBook = (item: any) => {
         setSelectedItem(item);
         setStep(3);
+        setSelectedSeats([]);
+        setCustomHolidayPrice(null); // Reset custom price
+        
+        // Init passengers based on mode
+        let initialPassengers: any[] = [];
+        if (isFlight || isTrain || isHoliday) {
+            const count = parseInt(searchParams.guests) || 1;
+            // Use DOB instead of age. Split name to first/last, Added Title
+            initialPassengers = Array(count).fill({ title: 'Mr', firstName: '', lastName: '', type: 'Adult', gender: 'Male', idProof: '', dob: '' });
+        } else if (isHotel) {
+            initialPassengers = [{ title: 'Mr', firstName: '', lastName: '', mobile: '', email: '', idProof: '' }]; // Primary Guest
+        }
+        setPassengers(initialPassengers);
+
+        // SubStep Initialization
+        if (isBus) setSubStep(1); // Seats first for Bus
+        else if (isHoliday) {
+            // Intelligent Defaults based on Package Type
+            let defaultTransport = ['Flight'];
+            let defaultMeal = 'Breakfast';
+            let defaultHotel = '3 Star';
+
+            if (item.type === 'Luxury' || item.desc.includes('7 Days')) {
+                defaultTransport = ['Flight'];
+                defaultMeal = 'All Meals';
+                defaultHotel = '5 Star';
+            } else if (item.type === 'Best Seller' || item.desc.includes('5 Days')) {
+                defaultTransport = ['Train'];
+                defaultMeal = 'Breakfast + Dinner';
+                defaultHotel = '4 Star';
+            } else { // Short Trip
+                defaultTransport = ['Bus'];
+                defaultMeal = 'Breakfast';
+                defaultHotel = '3 Star';
+            }
+            
+            setHolidayParams({
+                activities: [],
+                transport: defaultTransport,
+                hotelType: defaultHotel,
+                mealPlan: defaultMeal
+            });
+            setSubStep(1); // Customize first for Holiday
+        }
+        else setSubStep(1); // Details first for Flight/Train/Hotel
+    };
+
+    const updateGuests = (change: number) => {
+        const current = parseInt(searchParams.guests) || 1;
+        const newVal = Math.max(1, Math.min(9, current + change));
+        setSearchParams({...searchParams, guests: newVal.toString()});
+    };
+
+    // --- SEAT SELECTION LOGIC ---
+    const toggleSeat = (seatId: string, maxSeats: number = 6) => {
+        if (selectedSeats.includes(seatId)) {
+            setSelectedSeats(prev => prev.filter(id => id !== seatId));
+            if (isBus) setPassengers(prev => prev.filter((_, i) => i !== selectedSeats.indexOf(seatId)));
+        } else {
+            if (selectedSeats.length >= maxSeats) {
+                alert(`Maximum ${maxSeats} seats allowed`);
+                return;
+            }
+            setSelectedSeats(prev => [...prev, seatId]);
+            if (isBus) setPassengers(prev => [...prev, { title: 'Mr', firstName: '', lastName: '', dob: '', gender: 'Male' }]);
+        }
+    };
+
+    const calculateAge = (dobString: string) => {
+        if (!dobString) return 0;
+        const birthDate = new Date(dobString);
+        const difference = Date.now() - birthDate.getTime();
+        const ageDate = new Date(difference);
+        return Math.abs(ageDate.getUTCFullYear() - 1970);
+    };
+
+    const validatePassenger = (p: any) => {
+        if (!isHotel && p.dob) {
+            const age = calculateAge(p.dob);
+            if (p.type === 'Child' && age >= 12) return "Child must be < 12 years";
+            if (p.type === 'Senior' && age < 60) return "Senior must be > 60 years";
+            if (p.type === 'Adult' && age < 12) return "Adult must be ≥ 12 years";
+        }
+        return null;
+    };
+
+    const handleDetailsSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        // Check validations
+        for (const p of passengers) {
+            const error = validatePassenger(p);
+            if (error) {
+                alert(`Error: ${error}`);
+                return;
+            }
+        }
+        
+        // Navigation Logic
+        if (isFlight) setSubStep(2); // Go to Seats
+        else if (isBus) setSubStep(3); // Go to Payment (already did seats)
+        else if (isHoliday) setSubStep(3); // Go to Payment
+        else setSubStep(2); // Train/Hotel go to Payment
+    };
+
+    const handleFlightSeatsSubmit = () => {
+        setSubStep(3); // Go to Addons
+    };
+    
+    const handleFlightAddonsSubmit = () => {
+        setSubStep(4); // Go to Payment
+    };
+
+    const handleHolidayCustomizeSubmit = () => {
+        setSubStep(2); // Go to Details
     };
 
     const handleBook = async () => {
         if (!selectedItem) return;
         setLoading(true);
-        const charge = selectedItem.price * SERVICE_CHARGE_PERCENT;
-        const total = selectedItem.price + charge;
+        
+        let totalPrice = selectedItem.price;
+        if (isBus && selectedSeats.length > 0) totalPrice = selectedItem.price * selectedSeats.length;
+        if ((isFlight || isTrain || isHoliday) && passengers.length > 0) totalPrice = selectedItem.price * passengers.length;
+        if (isHotel) totalPrice = selectedItem.price * parseInt(searchParams.rooms || '1'); // Simplified night calc
+
+        // Add-ons cost for Flight
+        if (isFlight) {
+            if (addOns.meal === 'Veg') totalPrice += (399 * passengers.length);
+            if (addOns.meal === 'Non-Veg') totalPrice += (499 * passengers.length);
+            if (addOns.baggage > 0) {
+                 const baggageCost = (addOns.baggage / 5) * 250;
+                 totalPrice += (baggageCost * passengers.length);
+            }
+            // Flight Seat Charges - Updated for new layout
+            selectedSeats.forEach(seat => {
+                const match = seat.match(/^(\d+)/);
+                const row = match ? parseInt(match[1]) : 0;
+                
+                if (row <= 7) totalPrice += 500; // Premium
+                else if (row >= 10 && row <= 26) totalPrice += 250; // Standard
+                // Rows 30+ Free
+            });
+        }
+
+        // Holiday Costs
+        if (isHoliday) {
+            if (customHolidayPrice !== null && !isNaN(customHolidayPrice)) {
+                totalPrice = customHolidayPrice;
+            } else {
+                totalPrice = getHolidayCalculatedPrice();
+            }
+        }
+
+        const charge = totalPrice * SERVICE_CHARGE_PERCENT;
+        const total = totalPrice + charge;
 
         const success = await processPayment(total);
         if (success) {
-            onSuccess({
+            const resultData: any = {
                 Service: `${type} Booking`,
-                Provider: selectedItem.airline,
-                Route: 'DEL - BOM',
-                Time: selectedItem.time,
-                BaseAmount: `₹${selectedItem.price}`,
+                Provider: selectedItem.provider,
+                BaseAmount: `₹${totalPrice}`,
                 ServiceCharge: `₹${charge.toFixed(2)}`,
                 TotalPaid: `₹${total.toFixed(2)}`,
-                PNR: 'PNR' + Math.floor(1000 + Math.random() * 9000)
-            });
+                BookingID: (isFlight ? 'FL' : isTrain ? 'PNR' : 'BK') + Math.floor(1000 + Math.random() * 9000),
+                Status: 'Confirmed'
+            };
+
+            if (isHotel) {
+                resultData.Location = selectedItem.desc;
+                resultData.Rooms = searchParams.rooms;
+                resultData.Guest = `${passengers[0]?.title} ${passengers[0]?.firstName} ${passengers[0]?.lastName}`;
+            } else if (isBus || isFlight) {
+                resultData.Route = `${searchParams.from} - ${searchParams.to}`;
+                resultData.Seats = selectedSeats.join(', ');
+                if(isBus) resultData.Boarding = contactInfo.mobile;
+                if(isFlight) resultData.FlightNo = selectedItem.code;
+            } else if (isHoliday) {
+                resultData.Package = selectedItem.provider;
+                resultData.Duration = selectedItem.desc;
+                resultData.Guests = passengers.length;
+                resultData.Hotel = holidayParams.hotelType;
+            } else {
+                resultData.Route = `${searchParams.from} - ${searchParams.to}`;
+                resultData.Passengers = passengers.length;
+                resultData.Class = isTrain ? searchParams.class : selectedItem.type;
+            }
+
+            onSuccess(resultData);
         }
         setLoading(false);
     };
+
+    const getData = () => {
+        if (isBus) return MOCK_BUSES;
+        if (isTrain) return MOCK_TRAINS;
+        if (isHotel) return MOCK_HOTELS;
+        if (isHoliday) {
+             const dest = searchParams.to || "Dream Destination";
+             return [
+                { 
+                    id: 1, 
+                    provider: `${dest} ${HOLIDAY_NAMES[2][0]}`, 
+                    desc: '2 Days / 1 Night', 
+                    price: 5999, 
+                    type: 'Short Trip',
+                    benefits: ['Hotel', 'Sightseeing']
+                },
+                { 
+                    id: 2, 
+                    provider: `${dest} ${HOLIDAY_NAMES[5][1]}`, // Family Adventure
+                    desc: '5 Days / 4 Nights', 
+                    price: 14999, 
+                    type: 'Best Seller',
+                    benefits: ['Hotel', 'Meals', 'Tours', 'Transfer'] 
+                },
+                { 
+                    id: 3, 
+                    provider: `${dest} ${HOLIDAY_NAMES[7][0]}`, 
+                    desc: '7 Days / 6 Nights', 
+                    price: 24999, 
+                    type: 'Luxury',
+                    benefits: ['All Inclusive', 'Flights', '5 Star Hotel']
+                },
+             ];
+        }
+        return MOCK_FLIGHTS;
+    };
+
+    // --- RENDERERS ---
+
+    const renderBusSeats = () => (
+        <div className="space-y-4 animate-in slide-in-from-right-4">
+            <h3 className="font-bold text-gray-800">Select Bus Seats</h3>
+            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 flex justify-center">
+                <div className="grid grid-cols-4 gap-3 p-4 border rounded-xl bg-white max-w-[200px]">
+                    <div className="col-span-4 text-right mb-4"><div className="w-8 h-8 rounded-full border border-gray-300 ml-auto flex items-center justify-center text-[10px] text-gray-400">Driver</div></div>
+                    {Array.from({ length: 20 }).map((_, i) => {
+                        const seatNum = `L${i + 1}`;
+                        const isSelected = selectedSeats.includes(seatNum);
+                        return (
+                            <button key={i} onClick={() => toggleSeat(seatNum)} className={`w-8 h-8 rounded border flex items-center justify-center text-[10px] transition ${isSelected ? 'bg-blue-500 text-white border-blue-600' : 'bg-white border-gray-300 hover:border-blue-400 text-gray-600'}`}>
+                                {i+1}
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+            <button disabled={selectedSeats.length === 0} onClick={() => setSubStep(2)} className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 disabled:opacity-50">
+                Continue ({selectedSeats.length} Seats)
+            </button>
+        </div>
+    );
+
+    const renderFlightSeats = () => {
+        const reqSeats = parseInt(searchParams.guests);
+        
+        // Helper to generate seat rows
+        const renderRow = (rowNum: number, isPremium: boolean, isWing: boolean) => {
+             const colorClass = isPremium 
+                ? 'bg-purple-100 border-purple-300 text-purple-700 hover:bg-purple-200' 
+                : isWing 
+                    ? 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100' // Standard
+                    : 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100'; // Standard
+
+             return (
+                 <div key={rowNum} className="flex items-center gap-4 sm:gap-8 justify-center relative">
+                     {/* Left Side ABC */}
+                     <div className="flex gap-1">
+                         {['A','B','C'].map(col => {
+                             const seatId = `${rowNum}${col}`;
+                             const isSelected = selectedSeats.includes(seatId);
+                             return (
+                                 <button 
+                                    key={seatId} 
+                                    onClick={() => toggleSeat(seatId, reqSeats)}
+                                    className={`w-8 h-8 sm:w-10 sm:h-10 text-xs font-bold rounded-md border flex items-center justify-center transition shadow-sm ${isSelected ? 'bg-green-600 text-white border-green-700 ring-2 ring-green-200' : colorClass}`}
+                                    title={`Seat ${seatId} - ${isPremium ? '₹500' : '₹250'}`}
+                                 >
+                                     {col}
+                                 </button>
+                             );
+                         })}
+                     </div>
+
+                     {/* Aisle */}
+                     <div className="w-6 text-center text-xs text-gray-400 font-mono flex flex-col justify-center items-center">
+                        <span>{rowNum}</span>
+                     </div>
+
+                      {/* Right Side DEF */}
+                     <div className="flex gap-1">
+                         {['D','E','F'].map(col => {
+                             const seatId = `${rowNum}${col}`;
+                             const isSelected = selectedSeats.includes(seatId);
+                             return (
+                                 <button 
+                                    key={seatId} 
+                                    onClick={() => toggleSeat(seatId, reqSeats)}
+                                    className={`w-8 h-8 sm:w-10 sm:h-10 text-xs font-bold rounded-md border flex items-center justify-center transition shadow-sm ${isSelected ? 'bg-green-600 text-white border-green-700 ring-2 ring-green-200' : colorClass}`}
+                                    title={`Seat ${seatId} - ${isPremium ? '₹500' : '₹250'}`}
+                                 >
+                                     {col}
+                                 </button>
+                             );
+                         })}
+                     </div>
+                 </div>
+             )
+        };
+
+        return (
+            <div className="space-y-4 animate-in slide-in-from-right-4">
+                <div className="flex justify-between items-center sticky top-0 bg-white z-10 py-2 border-b">
+                    <div>
+                        <h3 className="font-bold text-gray-800">Select Seats</h3>
+                        <p className="text-xs text-gray-500">Front (Premium) • Mid (Standard) • Rear (Free)</p>
+                    </div>
+                    <span className="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full font-bold shadow-sm border border-blue-200">
+                        Selected: {selectedSeats.length}/{reqSeats}
+                    </span>
+                </div>
+                
+                <div className="flex justify-center bg-gray-100 rounded-xl p-4 sm:p-8 overflow-hidden border border-gray-200">
+                    <div className="bg-white rounded-[40px] px-4 sm:px-8 py-12 border-2 border-gray-300 shadow-2xl relative min-w-[320px] sm:min-w-[400px]">
+                         
+                         {/* Nose Cone / Cockpit Area */}
+                         <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-40 h-20 bg-gray-200 rounded-b-full opacity-20"></div>
+                         <div className="text-center mb-8 text-gray-400 text-[10px] uppercase tracking-[0.2em] font-bold">Cockpit</div>
+
+                         {/* Front Service Area */}
+                         <div className="flex justify-between mb-6 px-2">
+                            <div className="flex gap-2">
+                                <div className="w-8 h-8 border-2 border-gray-300 rounded flex items-center justify-center font-bold text-gray-400 bg-gray-50" title="Galley">G</div>
+                                <div className="w-8 h-8 border-2 border-gray-300 rounded flex items-center justify-center font-bold text-gray-400 bg-gray-50" title="Lavatory">L</div>
+                            </div>
+                            <div className="flex gap-2">
+                                <div className="w-8 h-8 border-2 border-gray-300 rounded flex items-center justify-center font-bold text-gray-400 bg-gray-50" title="Galley">G</div>
+                            </div>
+                         </div>
+
+                         {/* SEAT GRID */}
+                         <div className="space-y-3">
+                             {/* Rows 1-7 (Premium) */}
+                             {Array.from({length: 7}).map((_, i) => renderRow(i + 1, true, false))}
+                             
+                             {/* Exit Row Gap */}
+                             <div className="flex items-center justify-between px-4 py-4 text-gray-400 text-xs font-bold uppercase">
+                                <span className="flex items-center gap-1"><ArrowRight size={14} className="rotate-[-45deg]"/> Exit</span>
+                                <span className="flex items-center gap-1">Exit <ArrowRight size={14} className="rotate-[-135deg]"/></span>
+                             </div>
+
+                             {/* Rows 10-15 (Standard - Front Wing) */}
+                             {Array.from({length: 6}).map((_, i) => renderRow(i + 10, false, true))}
+
+                             {/* Wing Area Indicator */}
+                             <div className="absolute left-0 right-0 h-48 bg-gray-100/30 -z-10 top-[450px] border-y border-dashed border-gray-300 pointer-events-none"></div>
+
+                             {/* Rows 16-26 (Standard - Over Wing/Back) */}
+                             {Array.from({length: 11}).map((_, i) => renderRow(i + 16, false, true))}
+
+                             {/* Exit Row Gap */}
+                             <div className="flex items-center justify-between px-4 py-4 text-gray-400 text-xs font-bold uppercase">
+                                <span className="flex items-center gap-1"><ArrowRight size={14} className="rotate-[-45deg]"/> Exit</span>
+                                <span className="flex items-center gap-1">Exit <ArrowRight size={14} className="rotate-[-135deg]"/></span>
+                             </div>
+
+                             {/* Rows 30-40 (Rear Economy Free) */}
+                             {Array.from({length: 11}).map((_, i) => renderRow(i + 30, false, false))}
+                         </div>
+
+                         {/* Rear Service Area */}
+                         <div className="flex justify-between mt-8 px-2">
+                            <div className="w-8 h-8 border-2 border-gray-300 rounded flex items-center justify-center font-bold text-gray-400 bg-gray-50" title="Lavatory">L</div>
+                            <div className="flex gap-2">
+                                <div className="w-8 h-8 border-2 border-gray-300 rounded flex items-center justify-center font-bold text-gray-400 bg-gray-50" title="Lavatory">L</div>
+                                <div className="w-8 h-8 border-2 border-gray-300 rounded flex items-center justify-center font-bold text-gray-400 bg-gray-50" title="Galley">G</div>
+                            </div>
+                         </div>
+                    </div>
+                </div>
+
+                <button disabled={selectedSeats.length !== reqSeats} onClick={handleFlightSeatsSubmit} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50 flex justify-center gap-2 shadow-lg text-lg sticky bottom-0 z-20">
+                    Confirm Selection {selectedSeats.length > 0 && `(${selectedSeats.join(', ')})`}
+                </button>
+            </div>
+        );
+    };
+
+    const renderFlightAddons = () => (
+        <div className="space-y-4 animate-in slide-in-from-right-4">
+             <h3 className="font-bold text-gray-800">Add-ons</h3>
+             <div className="bg-white p-4 rounded-lg border border-gray-200 space-y-4">
+                <h4 className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                    <Utensils size={14}/> Select Meals
+                </h4>
+                <div className="flex gap-2">
+                    <button type="button" 
+                        onClick={() => setAddOns({...addOns, meal: addOns.meal === 'Veg' ? null : 'Veg'})}
+                        className={`flex-1 h-10 px-2 text-xs font-semibold rounded-lg border flex items-center justify-center gap-2 ${addOns.meal === 'Veg' ? 'bg-green-100 border-green-500 text-green-700' : 'bg-white border-gray-300 text-gray-600'}`}
+                    >
+                        <span className={`w-3 h-3 rounded-full border border-current ${addOns.meal === 'Veg' ? 'bg-green-600' : 'bg-transparent'}`}></span>
+                        Veg (₹399)
+                    </button>
+                    <button type="button" 
+                        onClick={() => setAddOns({...addOns, meal: addOns.meal === 'Non-Veg' ? null : 'Non-Veg'})}
+                        className={`flex-1 h-10 px-2 text-xs font-semibold rounded-lg border flex items-center justify-center gap-2 ${addOns.meal === 'Non-Veg' ? 'bg-red-100 border-red-500 text-red-700' : 'bg-white border-gray-300 text-gray-600'}`}
+                    >
+                        <span className={`w-3 h-3 rounded-full border border-current ${addOns.meal === 'Non-Veg' ? 'bg-red-600' : 'bg-transparent'}`}></span>
+                        Non-Veg (₹499)
+                    </button>
+                </div>
+
+                <div className="border-t border-gray-200 my-2 pt-2">
+                    <h4 className="text-sm font-bold text-gray-700 flex items-center gap-2 mb-2">
+                        <Luggage size={14}/> Extra Baggage (₹250 per 5kg)
+                    </h4>
+                    <select 
+                        className="w-full border border-gray-300 rounded px-3 h-10 text-sm bg-white"
+                        value={addOns.baggage} 
+                        onChange={e => setAddOns({...addOns, baggage: Number(e.target.value) as 0|5|10|15})}
+                    >
+                        <option value={0}>No Extra Baggage</option>
+                        <option value={5}>+ 5kg (₹250)</option>
+                        <option value={10}>+ 10kg (₹500)</option>
+                        <option value={15}>+ 15kg (₹750)</option>
+                    </select>
+                </div>
+            </div>
+            <button onClick={handleFlightAddonsSubmit} className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700">
+                Proceed to Payment
+            </button>
+        </div>
+    );
+
+    const renderHolidayCustomization = () => (
+        <div className="space-y-6 animate-in slide-in-from-right-4">
+            <h3 className="font-bold text-gray-800">Customize Package</h3>
+            
+            {/* Itinerary & Inclusions Summary */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 className="text-xs font-bold text-blue-700 uppercase mb-2 flex items-center gap-1">
+                    <Map size={14}/> Itinerary & Inclusions
+                </h4>
+                <div className="text-sm text-gray-700 space-y-1">
+                    <p><strong>Package:</strong> {selectedItem?.provider}</p>
+                    <p><strong>Duration:</strong> {selectedItem?.desc}</p>
+                    <div className="pt-2 border-t border-blue-100">
+                        <p className="text-xs font-bold text-gray-500 uppercase mb-1">Selected Experiences:</p>
+                        {holidayParams.activities.length > 0 ? (
+                            <ul className="list-disc pl-4 text-xs">
+                                {holidayParams.activities.map(actId => (
+                                    <li key={actId}>{ACTIVITIES.find(a => a.id === actId)?.label}</li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p className="text-xs text-gray-400 italic">No extra activities selected.</p>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Activities */}
+            <div className="bg-white border border-gray-200 rounded-lg p-4">
+                <h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Day-wise Activities</h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {ACTIVITIES.map(act => {
+                        const selected = holidayParams.activities.length > 0 && holidayParams.activities.includes(act.id);
+                        return (
+                            <button key={act.id} 
+                                onClick={() => {
+                                    setHolidayParams(prev => ({
+                                        ...prev,
+                                        activities: selected ? prev.activities.filter(a => a !== act.id) : [...prev.activities, act.id]
+                                    }))
+                                }}
+                                className={`flex items-center gap-2 p-2 rounded-lg text-xs font-semibold border transition ${selected ? 'bg-teal-50 border-teal-500 text-teal-700' : 'bg-white border-gray-200 text-gray-600'}`}
+                            >
+                                <act.icon size={14}/> 
+                                <span className="flex-1 text-left">{act.label}</span>
+                                {selected && <CheckCircle size={12} className="text-teal-600"/>}
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Transport */}
+            <div className="bg-white border border-gray-200 rounded-lg p-4">
+                <h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Mode of Transport ({searchParams.from} ➝ {searchParams.to})</h4>
+                <div className="flex gap-2">
+                    {['Flight', 'Train', 'Bus', 'Cab'].map(mode => {
+                        const isSelected = holidayParams.transport.includes(mode);
+                        return (
+                            <button key={mode}
+                                onClick={() => {
+                                    setHolidayParams(prev => ({
+                                        ...prev,
+                                        transport: isSelected 
+                                            ? prev.transport.filter(t => t !== mode)
+                                            : [...prev.transport, mode]
+                                    }))
+                                }}
+                                className={`flex-1 py-2 text-xs font-bold rounded border ${isSelected ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
+                            >
+                                {mode}
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Hotel Selection */}
+            <div className="bg-white border border-gray-200 rounded-lg p-4">
+                <h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Select Hotel Category</h4>
+                <div className="flex gap-2">
+                    {['3 Star', '4 Star', '5 Star'].map(star => {
+                        const isSelected = holidayParams.hotelType === star;
+                        return (
+                            <button key={star}
+                                onClick={() => setHolidayParams({...holidayParams, hotelType: star})}
+                                className={`flex-1 py-2 text-xs font-bold rounded border flex items-center justify-center gap-1 ${isSelected ? 'bg-yellow-100 text-yellow-700 border-yellow-500' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
+                            >
+                                {star} {isSelected && <Star size={12} fill="currentColor" />}
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Meal Plan */}
+            <div className="bg-white border border-gray-200 rounded-lg p-4">
+                <h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Meal Plan</h4>
+                <select 
+                    className="w-full h-10 px-3 border border-gray-300 rounded text-sm bg-white"
+                    value={holidayParams.mealPlan}
+                    onChange={e => setHolidayParams({...holidayParams, mealPlan: e.target.value})}
+                >
+                    <option value="Breakfast">Breakfast Only</option>
+                    <option value="Breakfast + Lunch">Breakfast + Lunch</option>
+                    <option value="Breakfast + Dinner">Breakfast + Dinner</option>
+                    <option value="All Meals">All Meals (Breakfast + Lunch + Dinner)</option>
+                </select>
+            </div>
+
+            <button onClick={handleHolidayCustomizeSubmit} className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700">
+                Continue to Traveler Details
+            </button>
+        </div>
+    );
+
+    const renderDetailsForm = () => (
+        <form onSubmit={handleDetailsSubmit} className="space-y-6 animate-in slide-in-from-right-4 max-h-[450px] overflow-y-auto pr-2 custom-scrollbar">
+            
+            {passengers.map((p, index) => {
+                const validationError = validatePassenger(p);
+
+                return (
+                    <div key={index} className="space-y-4">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-sm font-bold text-gray-800">
+                                {isHotel ? 'Guest Details' : `Passenger ${index + 1}`} 
+                                {isBus && ` (Seat: ${selectedSeats[index]})`}
+                            </h3>
+                            
+                            {/* Passenger Type Selector for Flight/Train/Holiday */}
+                            {!isHotel && !isBus && (
+                                <select 
+                                    className="bg-white border rounded px-2 py-1 text-xs font-medium text-gray-700"
+                                    value={p.type} 
+                                    onChange={e => {
+                                        const newP=[...passengers]; 
+                                        newP[index].type=e.target.value; 
+                                        setPassengers(newP)
+                                    }}
+                                >
+                                    <option value="Adult">Adult</option>
+                                    <option value="Child">Child</option>
+                                    <option value="Senior">Senior</option>
+                                </select>
+                            )}
+                        </div>
+
+                        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm space-y-4">
+                            {/* Row 1: Title, First Name, Last Name */}
+                            <div className="flex gap-4">
+                                <div className="w-24">
+                                    <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Title</label>
+                                    <select 
+                                        className="w-full border border-gray-300 rounded px-3 h-10 text-sm text-gray-800 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
+                                        value={p.title || 'Mr'} 
+                                        onChange={e => {const newP=[...passengers]; newP[index].title=e.target.value; setPassengers(newP)}}
+                                    >
+                                        <option value="Mr">Mr</option>
+                                        <option value="Mrs">Mrs</option>
+                                        <option value="Ms">Ms</option>
+                                        <option value="Mstr">Mstr</option>
+                                        <option value="Miss">Miss</option>
+                                    </select>
+                                </div>
+                                <div className="flex-1">
+                                    <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">First Name</label>
+                                    <input 
+                                        required 
+                                        type="text"
+                                        className="w-full border border-gray-300 rounded px-3 h-10 text-sm text-gray-800 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white" 
+                                        value={p.firstName} 
+                                        onChange={e => {const newP=[...passengers]; newP[index].firstName=e.target.value; setPassengers(newP)}} 
+                                    />
+                                </div>
+                                <div className="flex-1">
+                                    <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Last Name</label>
+                                    <input 
+                                        required 
+                                        type="text"
+                                        className="w-full border border-gray-300 rounded px-3 h-10 text-sm text-gray-800 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white" 
+                                        value={p.lastName} 
+                                        onChange={e => {const newP=[...passengers]; newP[index].lastName=e.target.value; setPassengers(newP)}} 
+                                    />
+                                </div>
+                            </div>
+                            
+                            {!isHotel && (
+                                <div className="flex gap-4">
+                                    {/* Date of Birth */}
+                                    <div className="flex-1">
+                                        <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Date of Birth</label>
+                                        <input 
+                                            required 
+                                            type="date" 
+                                            className={`w-full border border-gray-300 rounded px-3 h-10 text-sm text-gray-800 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white ${validationError ? 'border-red-500 bg-red-50' : ''}`}
+                                            value={p.dob || ''} 
+                                            onChange={e => {const newP=[...passengers]; newP[index].dob=e.target.value; setPassengers(newP)}} 
+                                        />
+                                    </div>
+
+                                    {/* Gender */}
+                                    <div className="flex-1">
+                                        <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Gender</label>
+                                        <select 
+                                            className="w-full border border-gray-300 rounded px-3 h-10 text-sm text-gray-800 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white" 
+                                            value={p.gender} 
+                                            onChange={e => {const newP=[...passengers]; newP[index].gender=e.target.value; setPassengers(newP)}}
+                                        >
+                                            <option value="Male">Male</option>
+                                            <option value="Female">Female</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            )}
+                            
+                            {/* ID Proof - Full Width */}
+                            {(isTrain || isFlight || isHotel || isHoliday) && (
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">{isTrain ? "Aadhaar/PAN Number" : "ID Number"}</label>
+                                    <input 
+                                        className="w-full border border-gray-300 rounded px-3 h-10 text-sm text-gray-800 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white" 
+                                        value={p.idProof} 
+                                        onChange={e => {const newP=[...passengers]; newP[index].idProof=e.target.value; setPassengers(newP)}} 
+                                    />
+                                </div>
+                            )}
+                            
+                            {validationError && <p className="text-xs text-red-600 font-bold">{validationError}</p>}
+
+                            {isTrain && (
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Berth Preference</label>
+                                    <select 
+                                        className="w-full border border-gray-300 rounded px-3 h-10 text-sm text-gray-800 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white" 
+                                        value={p.berth} 
+                                        onChange={e => {const newP=[...passengers]; newP[index].berth=e.target.value; setPassengers(newP)}}
+                                    >
+                                        <option value="">No Preference</option>
+                                        <option value="LB">Lower Berth</option>
+                                        <option value="MB">Middle Berth</option>
+                                        <option value="UB">Upper Berth</option>
+                                        <option value="SL">Side Lower</option>
+                                    </select>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                );
+            })}
+
+            {/* Contact Details Section */}
+            <div className="space-y-2 mt-6">
+                <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1">Contact Details</h3>
+                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm space-y-4">
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Mobile Number</label>
+                        <input 
+                            required 
+                            type="text" 
+                            maxLength={10} 
+                            placeholder="Enter 10-digit number" 
+                            className="w-full border border-gray-300 rounded px-3 h-10 text-sm text-gray-800 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
+                            value={contactInfo.mobile} 
+                            onChange={e => setContactInfo({...contactInfo, mobile: e.target.value})} 
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Email ID</label>
+                        <input 
+                            required 
+                            type="email" 
+                            placeholder="Enter email address" 
+                            className="w-full border border-gray-300 rounded px-3 h-10 text-sm text-gray-800 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
+                            value={contactInfo.email} 
+                            onChange={e => setContactInfo({...contactInfo, email: e.target.value})} 
+                        />
+                    </div>
+                </div>
+            </div>
+
+            <button className="w-full bg-blue-600 text-white py-3.5 rounded-lg font-bold hover:bg-blue-700 shadow-lg mt-4 text-base">
+                {isFlight ? "Continue to Seat Selection" : "Proceed to Payment"}
+            </button>
+        </form>
+    );
 
     return (
         <div>
             {step === 1 && (
                 <form onSubmit={handleSearch} className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1">FROM</label>
-                            <div className="flex items-center border rounded-lg p-3">
-                                <MapPin size={16} className="mr-2 text-gray-400"/>
-                                <input type="text" placeholder="Delhi" className="w-full outline-none" defaultValue="Delhi" />
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1">TO</label>
-                            <div className="flex items-center border rounded-lg p-3">
-                                <MapPin size={16} className="mr-2 text-gray-400"/>
-                                <input type="text" placeholder="Mumbai" className="w-full outline-none" defaultValue="Mumbai" />
-                            </div>
-                        </div>
+                        {isHotel ? (
+                            <>
+                                <div className="col-span-2">
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">CITY / HOTEL</label>
+                                    <div className="flex items-center border border-gray-300 rounded px-3 h-10 bg-white">
+                                        <MapPin size={16} className="mr-2 text-gray-400"/>
+                                        <input type="text" placeholder="Mumbai" className="w-full outline-none text-sm text-gray-800" 
+                                            value={searchParams.city} onChange={e => setSearchParams({...searchParams,city: e.target.value})} 
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">CHECK-IN</label>
+                                    <div className="flex items-center border border-gray-300 rounded px-3 h-10 bg-white">
+                                        <Calendar size={16} className="mr-2 text-gray-400"/>
+                                        <input type="date" className="w-full outline-none text-sm text-gray-800" 
+                                            value={searchParams.date} onChange={e => setSearchParams({...searchParams, date: e.target.value})}
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">CHECK-OUT</label>
+                                    <div className="flex items-center border border-gray-300 rounded px-3 h-10 bg-white">
+                                        <Calendar size={16} className="mr-2 text-gray-400"/>
+                                        <input type="date" className="w-full outline-none text-sm text-gray-800" 
+                                            value={searchParams.returnDate} onChange={e => setSearchParams({...searchParams, returnDate: e.target.value})}
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">GUESTS</label>
+                                    <input type="number" className="w-full border border-gray-300 rounded px-3 h-10 text-sm text-gray-800 outline-none focus:border-blue-500" value={searchParams.guests} onChange={e => setSearchParams({...searchParams, guests: e.target.value})} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">ROOMS</label>
+                                    <input type="number" className="w-full border border-gray-300 rounded px-3 h-10 text-sm text-gray-800 outline-none focus:border-blue-500" value={searchParams.rooms} onChange={e => setSearchParams({...searchParams, rooms: e.target.value})} />
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div className="col-span-2 flex gap-4 text-sm font-semibold text-gray-600 mb-1">
+                                    {isFlight && (
+                                        <>
+                                            <label className="flex items-center gap-1 cursor-pointer"><input type="radio" name="trip" checked={searchParams.tripType==='ONEWAY'} onChange={()=>setSearchParams({...searchParams, tripType:'ONEWAY'})}/> One Way</label>
+                                            <label className="flex items-center gap-1 cursor-pointer"><input type="radio" name="trip" checked={searchParams.tripType==='ROUND'} onChange={()=>setSearchParams({...searchParams, tripType:'ROUND'})}/> Round Trip</label>
+                                        </>
+                                    )}
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">{isHoliday ? "FROM (City)" : "FROM"}</label>
+                                    <div className="flex items-center border border-gray-300 rounded px-3 h-10 bg-white">
+                                        <MapPin size={16} className="mr-2 text-gray-400"/>
+                                        <input type="text" placeholder={isTrain ? "Station" : isFlight ? "Airport" : isHoliday ? "Departure City" : "City"} className="w-full outline-none text-sm text-gray-800" 
+                                            value={searchParams.from} onChange={e => setSearchParams({...searchParams, from: e.target.value})}
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">{isHoliday ? "TO (Destination)" : "TO"}</label>
+                                    <div className="flex items-center border border-gray-300 rounded px-3 h-10 bg-white">
+                                        <MapPin size={16} className="mr-2 text-gray-400"/>
+                                        <input type="text" placeholder={isTrain ? "Station" : isFlight ? "Airport" : isHoliday ? "Goa, Manali..." : "City"} className="w-full outline-none text-sm text-gray-800" 
+                                            value={searchParams.to} onChange={e => setSearchParams({...searchParams, to: e.target.value})}
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">{isHoliday ? "TRAVEL DATE" : "DATE"}</label>
+                                    <div className="flex items-center border border-gray-300 rounded px-3 h-10 bg-white">
+                                        <Calendar size={16} className="mr-2 text-gray-400"/>
+                                        <input type="date" className="w-full outline-none text-sm text-gray-800" value={searchParams.date} onChange={e => setSearchParams({...searchParams, date: e.target.value})}/>
+                                    </div>
+                                </div>
+                                {isHoliday && (
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 mb-1">RETURN DATE</label>
+                                        <div className="flex items-center border border-gray-300 rounded px-3 h-10 bg-white">
+                                            <Calendar size={16} className="mr-2 text-gray-400"/>
+                                            <input type="date" className="w-full outline-none text-sm text-gray-800" value={searchParams.returnDate} onChange={e => setSearchParams({...searchParams, returnDate: e.target.value})}/>
+                                        </div>
+                                    </div>
+                                )}
+                                {isTrain && (
+                                    <>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 mb-1">CLASS</label>
+                                            <select className="w-full border border-gray-300 rounded px-3 h-10 text-sm text-gray-800 outline-none focus:border-blue-500" value={searchParams.class} onChange={e=>setSearchParams({...searchParams, class:e.target.value})}>
+                                                <option value="SL">Sleeper (SL)</option>
+                                                <option value="3A">AC 3 Tier (3A)</option>
+                                                <option value="2A">AC 2 Tier (2A)</option>
+                                                <option value="1A">AC First (1A)</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 mb-1">QUOTA</label>
+                                            <select className="w-full border border-gray-300 rounded px-3 h-10 text-sm text-gray-800 outline-none focus:border-blue-500" value={searchParams.quota} onChange={e=>setSearchParams({...searchParams, quota:e.target.value})}>
+                                                <option value="GENERAL">General</option>
+                                                <option value="TATKAL">Tatkal</option>
+                                                <option value="LADIES">Ladies</option>
+                                            </select>
+                                        </div>
+                                    </>
+                                )}
+                                {(isFlight || isHoliday) && (
+                                    <div className="col-span-2">
+                                        <label className="block text-xs font-bold text-gray-500 mb-1">PASSENGERS</label>
+                                        <div className="flex items-center justify-between border border-gray-300 rounded px-3 h-10 bg-white w-32">
+                                            <button type="button" onClick={() => updateGuests(-1)} className="p-1 hover:bg-gray-100 rounded text-gray-600 disabled:opacity-50" disabled={parseInt(searchParams.guests) <= 1}><Minus size={14}/></button>
+                                            <span className="font-bold text-gray-800 text-sm">{searchParams.guests}</span>
+                                            <button type="button" onClick={() => updateGuests(1)} className="p-1 hover:bg-gray-100 rounded text-gray-600 disabled:opacity-50" disabled={parseInt(searchParams.guests) >= 9}><Plus size={14}/></button>
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
                     </div>
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1">DATE</label>
-                        <div className="flex items-center border rounded-lg p-3">
-                            <Calendar size={16} className="mr-2 text-gray-400"/>
-                            <input type="date" className="w-full outline-none" />
-                        </div>
-                    </div>
-                    <button disabled={loading} className="w-full bg-orange-600 text-white py-3 rounded-lg font-bold hover:bg-orange-700 flex justify-center">
-                         {loading ? <Loader2 className="animate-spin"/> : 'Search Available Options'}
+                    
+                    <button disabled={loading} className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 flex justify-center">
+                         {loading ? <Loader2 className="animate-spin"/> : `Search ${type}s`}
                     </button>
                 </form>
             )}
 
             {step === 2 && (
-                <div className="space-y-3">
+                <div className="space-y-4">
                     <div className="flex justify-between items-center mb-4">
-                        <p className="text-sm text-gray-500">Results for <span className="font-bold">Delhi to Mumbai</span></p>
+                        <p className="text-sm text-gray-500">Results for <span className="font-bold">{isHotel ? searchParams.city : isHoliday ? searchParams.to : `${searchParams.from} to ${searchParams.to}`}</span></p>
                         <button onClick={() => setStep(1)} className="text-xs text-blue-600 hover:underline">Change</button>
                     </div>
-                    {loading ? <div className="text-center py-10"><Loader2 className="animate-spin mx-auto text-orange-600"/> Booking Ticket...</div> : (
-                        MOCK_FLIGHTS.map(f => (
-                            <div key={f.id} className="border p-4 rounded-lg flex justify-between items-center shadow-sm hover:shadow-md transition">
-                                <div>
-                                    <div className="font-bold text-gray-800">{f.airline}</div>
-                                    <div className="text-xs text-gray-500">{f.time}</div>
-                                </div>
-                                <div className="text-right">
-                                    <div className="text-lg font-bold text-blue-900">₹{f.price}</div>
-                                    <button onClick={() => initiateBook(f)} className="text-xs bg-orange-100 text-orange-700 px-3 py-1 rounded mt-1 font-semibold hover:bg-orange-200">
+                    {loading ? <div className="text-center py-10"><Loader2 className="animate-spin mx-auto text-blue-600"/> Fetching Options...</div> : (
+                        getData().map(item => (
+                            <div key={item.id} className="bg-white border border-gray-200 p-6 flex flex-col md:flex-row gap-6 rounded-xl shadow-sm hover:shadow-md transition justify-between items-center group">
+                                {isFlight ? (
+                                    <>
+                                        {/* Airline Info */}
+                                        <div className="flex items-center gap-4 w-full md:w-auto">
+                                            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold ${item.provider === 'IndiGo' ? 'bg-blue-100 text-blue-700' : item.provider === 'Air India' ? 'bg-red-100 text-red-700' : 'bg-purple-100 text-purple-700'}`}>
+                                                {item.provider.charAt(0)}
+                                            </div>
+                                            <div>
+                                                <h4 className="text-lg font-bold text-gray-900">{item.provider}</h4>
+                                                <span className="bg-blue-50 text-blue-600 text-xs px-2 py-0.5 rounded font-medium">{(item as any).code}</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Timing */}
+                                        <div className="text-center w-full md:w-auto flex-1 px-4">
+                                            <div className="text-xl font-bold text-gray-800">{item.desc.split('-')[0].trim()}</div>
+                                            <div className="flex items-center justify-center gap-2 text-xs text-gray-400 my-1">
+                                                <div className="h-[1px] bg-gray-300 w-12"></div>
+                                                <Plane size={14} className="text-gray-400 transform rotate-90 md:rotate-0" />
+                                                <div className="h-[1px] bg-gray-300 w-12"></div>
+                                            </div>
+                                            <div className="text-xl font-bold text-gray-800">{item.desc.split('-')[1]?.trim()}</div>
+                                            <div className="text-xs text-gray-500 mt-1 font-medium bg-gray-100 inline-block px-2 py-0.5 rounded">{(item as any).type}</div>
+                                        </div>
+                                    </>
+                                ) : (
+                                    // Unified Professional Card for Bus, Train, Hotel, Holiday
+                                    <>
+                                        {/* Info Section */}
+                                        <div className="flex items-center gap-4 w-full md:w-auto flex-1">
+                                            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold shrink-0 ${isBus ? 'bg-red-100 text-red-600' : isTrain ? 'bg-orange-100 text-orange-600' : isHoliday ? 'bg-teal-100 text-teal-600' : 'bg-purple-100 text-purple-600'}`}>
+                                                {isBus ? <Bus size={20}/> : isTrain ? <Train size={20}/> : isHoliday ? <Palmtree size={20}/> : <Hotel size={20}/>}
+                                            </div>
+                                            <div>
+                                                <h4 className="text-lg font-bold text-gray-900">{item.provider}</h4>
+                                                {isTrain && <span className="bg-orange-50 text-orange-600 text-xs px-2 py-0.5 rounded font-medium">{(item as any).type}</span>}
+                                                
+                                                <div className="flex items-center gap-1 text-sm text-gray-500 mt-1">
+                                                    {isHotel || isHoliday ? <MapPin size={14}/> : <Clock size={14}/>} 
+                                                    <span className="font-medium">{item.desc}</span>
+                                                </div>
+                                                {isBus && <span className="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-600 mt-1 inline-block">{(item as any).type}</span>}
+                                                {isHotel && <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded ml-2 font-bold">{(item as any).type}</span>}
+                                                {isHoliday && <span className="text-xs bg-teal-50 text-teal-700 px-2 py-0.5 rounded ml-2 font-bold">{(item as any).type}</span>}
+                                                
+                                                {/* Holiday Package Benefits Display */}
+                                                {isHoliday && (item as any).benefits && (
+                                                    <div className="flex flex-wrap gap-1 mt-2">
+                                                        {(item as any).benefits.map((ben: string, i: number) => (
+                                                            <span key={i} className="text-[10px] bg-green-50 text-green-700 border border-green-200 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                                                                <CheckCircle size={8} /> {ben}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+
+                                {/* Price & Action */}
+                                <div className="text-right w-full md:w-auto flex flex-row md:flex-col justify-between items-center md:items-end gap-2 shrink-0">
+                                    <div className="text-2xl font-bold text-blue-900">₹{item.price.toLocaleString()}</div>
+                                    <button 
+                                        onClick={() => initiateBook(item)} 
+                                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-8 rounded-lg shadow-md hover:shadow-lg transition transform hover:-translate-y-0.5 active:translate-y-0"
+                                    >
                                         Book
                                     </button>
                                 </div>
@@ -736,21 +2204,107 @@ const TravelFlow = ({ type, onSuccess, processPayment }: { type: string } & Flow
                 </div>
             )}
 
-            {step === 3 && selectedItem && (
+            {/* BUS: Seats (1) */}
+            {step === 3 && isBus && subStep === 1 && renderBusSeats()}
+
+            {/* HOLIDAY: Customize (1) */}
+            {step === 3 && isHoliday && subStep === 1 && renderHolidayCustomization()}
+
+            {/* FLIGHT: Details (1) -> Seats (2) -> Addons (3) */}
+            {step === 3 && isFlight && (
+                <>
+                    {subStep === 1 && renderDetailsForm()}
+                    {subStep === 2 && renderFlightSeats()}
+                    {subStep === 3 && renderFlightAddons()}
+                </>
+            )}
+
+            {/* TRAIN/HOTEL: Details (1) */}
+            {step === 3 && (isTrain || isHotel) && subStep === 1 && renderDetailsForm()}
+            
+            {/* BUS: Details (2) */}
+            {step === 3 && isBus && subStep === 2 && renderDetailsForm()}
+
+            {/* HOLIDAY: Details (2) */}
+            {step === 3 && isHoliday && subStep === 2 && renderDetailsForm()}
+
+            {/* FINAL CONFIRMATION */}
+            {step === 3 && (
+                (isFlight && subStep === 4) ||
+                (isBus && subStep === 3) ||
+                (isHoliday && subStep === 3) ||
+                ((isTrain || isHotel) && subStep === 2)
+            ) && selectedItem && (
                 <div className="space-y-4 animate-in slide-in-from-right-4">
                     <h3 className="font-bold text-gray-800">Confirm Booking</h3>
-                    <div className="bg-orange-50 p-3 rounded border border-orange-100 mb-4">
-                        <p className="text-sm text-gray-700">Airline: <strong>{selectedItem.airline}</strong></p>
-                        <p className="text-sm text-gray-700">Route: <strong>DEL - BOM</strong></p>
-                        <p className="text-sm text-gray-700">Time: <strong>{selectedItem.time}</strong></p>
+                    <div className="bg-blue-50 p-3 rounded border border-blue-100 mb-4">
+                        <p className="text-sm text-gray-700">{isHotel ? 'Hotel' : 'Operator'}: <strong>{selectedItem.provider}</strong></p>
+                        {!isHotel && !isHoliday && <p className="text-sm text-gray-700">Route: <strong>{searchParams.from} - {searchParams.to}</strong></p>}
+                        <p className="text-sm text-gray-700">{isHotel ? 'Location' : 'Time/Duration'}: <strong>{selectedItem.desc}</strong></p>
+                        
+                        {(isBus || isFlight) && <p className="text-sm text-gray-700">Seats: <strong>{selectedSeats.join(', ')}</strong></p>}
+                        {isTrain && <p className="text-sm text-gray-700">Class: <strong>{searchParams.class}</strong> ({searchParams.quota})</p>}
+                        {isFlight && <p className="text-sm text-gray-700">Flight: <strong>{selectedItem.code}</strong></p>}
+                        {isHotel && <p className="text-sm text-gray-700">Rooms: <strong>{searchParams.rooms}</strong> | Guests: <strong>{searchParams.guests}</strong></p>}
+                        
+                        {/* Holiday Specifics */}
+                        {isHoliday && (
+                            <>
+                                <p className="text-sm text-gray-700">Dates: <strong>{searchParams.date} to {searchParams.returnDate}</strong></p>
+                                <p className="text-sm text-gray-700">Transport: <strong>{holidayParams.transport.join(', ')}</strong></p>
+                                <p className="text-sm text-gray-700">Hotel Category: <strong>{holidayParams.hotelType}</strong></p>
+                                <p className="text-sm text-gray-700">Meal Plan: <strong>{holidayParams.mealPlan}</strong></p>
+                                {holidayParams.activities.length > 0 && <p className="text-sm text-gray-700">Activities: <strong>{holidayParams.activities.length} selected</strong></p>}
+                            </>
+                        )}
+
+                        {passengers.length > 0 && <p className="text-sm text-gray-700 mt-2 border-t border-blue-200 pt-2">Passenger: <strong>{passengers[0].firstName} {passengers[0].lastName}</strong> ({passengers[0].type || 'Adult'}) {passengers.length > 1 && `+ ${passengers.length - 1} others`}</p>}
+                        {isFlight && addOns.meal && <p className="text-sm text-gray-700">Meal: <strong>{addOns.meal}</strong></p>}
+                        {isFlight && addOns.baggage > 0 && <p className="text-sm text-gray-700">Extra Baggage: <strong>+{addOns.baggage}kg</strong></p>}
                     </div>
 
-                    <PaymentSummary amount={selectedItem.price} />
+                    {isHoliday && (
+                        <div className="bg-white border-2 border-blue-100 p-4 rounded-xl mb-4 flex justify-between items-center shadow-sm">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Total Package Cost</label>
+                                <p className="text-xs text-gray-400">Click amount to edit</p>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <span className="text-xl font-bold text-gray-600">₹</span>
+                                <input 
+                                    type="number" 
+                                    value={customHolidayPrice !== null && !isNaN(customHolidayPrice) ? customHolidayPrice : ''}
+                                    placeholder={getHolidayCalculatedPrice().toString()}
+                                    onChange={(e) => {
+                                        const val = parseFloat(e.target.value);
+                                        setCustomHolidayPrice(isNaN(val) ? NaN : val);
+                                    }}
+                                    className="w-32 text-2xl font-bold text-blue-700 text-right border-b-2 border-dashed border-blue-300 focus:border-blue-600 outline-none bg-transparent"
+                                />
+                            </div>
+                        </div>
+                    )}
+                    
+                    {!isHoliday && (
+                        <PaymentSummary amount={
+                            (isBus && selectedSeats.length > 0) ? selectedItem.price * selectedSeats.length : 
+                            (isHotel ? selectedItem.price * parseInt(searchParams.rooms) : selectedItem.price * passengers.length) + 
+                            (isFlight ? ( (addOns.meal==='Veg'?399:addOns.meal==='Non-Veg'?499:0) + ((addOns.baggage/5)*250) + (selectedSeats.reduce((acc, s) => {
+                                const match = s.match(/^(\d+)/);
+                                const row = match ? parseInt(match[1]) : 0;
+                                return acc + (row <= 7 ? 500 : (row >= 10 && row <= 26) ? 250 : 0);
+                            }, 0) / passengers.length) ) * passengers.length : 0)
+                        } />
+                    )}
+                    
+                    {isHoliday && (
+                        <PaymentSummary amount={customHolidayPrice !== null && !isNaN(customHolidayPrice) ? customHolidayPrice : getHolidayCalculatedPrice()} />
+                    )}
 
                     <div className="flex gap-3">
-                        <button onClick={() => setStep(2)} className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold">Back</button>
-                        <button onClick={handleBook} disabled={loading} className="flex-[2] bg-orange-600 text-white py-3 rounded-lg font-bold hover:bg-orange-700 flex justify-center items-center gap-2">
-                            {loading ? <Loader2 className="animate-spin" /> : 'Confirm Booking'}
+                        <button onClick={() => setSubStep(prev => prev - 1)} className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold">Back</button>
+                        <button onClick={handleBook} disabled={loading} className="flex-[2] bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 flex justify-center items-center gap-2">
+                            {loading ? <Loader2 className="animate-spin" /> : 'Confirm & Pay'}
                         </button>
                     </div>
                 </div>
@@ -758,529 +2312,104 @@ const TravelFlow = ({ type, onSuccess, processPayment }: { type: string } & Flow
         </div>
     );
 };
-
-const DMTFlow = ({ onSuccess, processPayment }: FlowProps) => {
-    const [step, setStep] = useState(0); // 0: Select Type, 1: Details, 2: Amount/Pay
-    const [transferType, setTransferType] = useState<'BANK' | 'MOBILE' | 'UPI'>('BANK');
-    const [loading, setLoading] = useState(false);
-    const [formData, setFormData] = useState({
-        name: '',
-        accountNo: '',
-        ifsc: '',
-        mobile: '',
-        upiId: '',
-        amount: ''
-    });
-    const [verifiedName, setVerifiedName] = useState('');
-
-    const handleTypeSelect = (type: 'BANK' | 'MOBILE' | 'UPI') => {
-        setTransferType(type);
-        setStep(1);
-        setFormData(prev => ({ ...prev, name: '', accountNo: '', ifsc: '', mobile: '', upiId: '', amount: '' }));
-        setVerifiedName('');
-    };
-
-    const handleVerify = (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        // Simulate verification delay
-        setTimeout(() => {
-            setLoading(false);
-            setVerifiedName(formData.name || 'Rahul Sharma'); // Use entered name or mock name
-            setStep(2);
-        }, 1500);
-    };
-
-    const handlePay = async () => {
-        setLoading(true);
-        const amountNum = parseFloat(formData.amount);
-        const charge = amountNum * SERVICE_CHARGE_PERCENT;
-        const total = amountNum + charge;
-
-        const success = await processPayment(total);
-        
-        if (success) {
-            const commonData = {
-                Service: 'Money Transfer',
-                Type: transferType === 'BANK' ? 'Bank Transfer' : (transferType === 'MOBILE' ? 'Mobile Transfer' : 'UPI Transfer'),
-                Amount: `₹${parseFloat(formData.amount).toFixed(2)}`,
-                ServiceCharge: `₹${charge.toFixed(2)}`,
-                TotalPaid: `₹${total.toFixed(2)}`,
-                PaymentMode: 'Wallet',
-                Status: 'Success',
-            };
-
-            let specificData = {};
-            if (transferType === 'BANK') {
-                specificData = {
-                    Beneficiary: verifiedName,
-                    Account: `XXXX${formData.accountNo.slice(-4)}`,
-                    IFSC: formData.ifsc,
-                    BankRefNo: 'REF' + Math.floor(Math.random() * 100000000)
-                };
-            } else if (transferType === 'MOBILE') {
-                specificData = {
-                    Mobile: formData.mobile,
-                    Beneficiary: verifiedName,
-                    UPIRefID: 'UPI' + Math.floor(Math.random() * 100000000)
-                };
-            } else {
-                specificData = {
-                    UPI_ID: formData.upiId,
-                    Beneficiary: verifiedName,
-                    UPIRefID: 'UPI' + Math.floor(Math.random() * 100000000)
-                };
-            }
-
-            onSuccess({ ...commonData, ...specificData });
-        }
-        setLoading(false);
-    };
-
-    return (
-        <div>
-            {/* Step 0: Select Type */}
-            {step === 0 && (
-                <div className="space-y-4">
-                    <h3 className="text-sm font-medium text-gray-700 text-center mb-4">Select Transfer Method</h3>
-                    <div className="grid grid-cols-1 gap-3">
-                        <button 
-                            onClick={() => handleTypeSelect('BANK')}
-                            className="flex items-center p-4 border rounded-xl hover:bg-blue-50 hover:border-blue-500 transition group"
-                        >
-                            <div className="bg-blue-100 p-3 rounded-full mr-4 group-hover:bg-blue-200">
-                                <Landmark className="text-blue-600" size={24} />
-                            </div>
-                            <div className="text-left">
-                                <div className="font-bold text-gray-800">Bank Account Transfer</div>
-                                <div className="text-xs text-gray-500">Send to any Bank Account via IMPS/NEFT</div>
-                            </div>
-                        </button>
-
-                        <button 
-                            onClick={() => handleTypeSelect('MOBILE')}
-                            className="flex items-center p-4 border rounded-xl hover:bg-purple-50 hover:border-purple-500 transition group"
-                        >
-                            <div className="bg-purple-100 p-3 rounded-full mr-4 group-hover:bg-purple-200">
-                                <Smartphone className="text-purple-600" size={24} />
-                            </div>
-                            <div className="text-left">
-                                <div className="font-bold text-gray-800">Mobile Number Transfer</div>
-                                <div className="text-xs text-gray-500">Send using 10-digit Mobile Number</div>
-                            </div>
-                        </button>
-
-                        <button 
-                            onClick={() => handleTypeSelect('UPI')}
-                            className="flex items-center p-4 border rounded-xl hover:bg-green-50 hover:border-green-500 transition group"
-                        >
-                            <div className="bg-green-100 p-3 rounded-full mr-4 group-hover:bg-green-200">
-                                <QrCode className="text-green-600" size={24} />
-                            </div>
-                            <div className="text-left">
-                                <div className="font-bold text-gray-800">UPI ID Transfer</div>
-                                <div className="text-xs text-gray-500">Send to any VPA / UPI ID</div>
-                            </div>
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            {/* Step 1: Input Details */}
-            {step === 1 && (
-                <form onSubmit={handleVerify} className="space-y-4 animate-in slide-in-from-right-4">
-                    <div className="flex items-center mb-4 text-gray-500 text-sm">
-                        <button type="button" onClick={() => setStep(0)} className="flex items-center hover:text-gray-800">
-                            <X size={16} className="mr-1 rotate-45" /> Change Method
-                        </button>
-                        <span className="mx-2">|</span>
-                        <span className="font-bold text-blue-600">
-                            {transferType === 'BANK' ? 'Bank Transfer' : transferType === 'MOBILE' ? 'Mobile Transfer' : 'UPI Transfer'}
-                        </span>
-                    </div>
-
-                    {transferType === 'BANK' && (
-                        <>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Account Holder Name</label>
-                                <input 
-                                    required
-                                    type="text" 
-                                    placeholder="Enter Name"
-                                    className="w-full border rounded-lg p-3"
-                                    onChange={e => setFormData({...formData, name: e.target.value})}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Bank Account Number</label>
-                                <input 
-                                    required
-                                    type="text" 
-                                    placeholder="Enter Account Number"
-                                    className="w-full border rounded-lg p-3"
-                                    onChange={e => setFormData({...formData, accountNo: e.target.value})}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">IFSC Code</label>
-                                <input 
-                                    required
-                                    type="text" 
-                                    placeholder="SBIN0001234"
-                                    className="w-full border rounded-lg p-3 uppercase"
-                                    onChange={e => setFormData({...formData, ifsc: e.target.value.toUpperCase()})}
-                                />
-                            </div>
-                        </>
-                    )}
-
-                    {transferType === 'MOBILE' && (
-                        <div>
-                             <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Number</label>
-                             <input 
-                                required
-                                type="text" 
-                                maxLength={10}
-                                placeholder="9876543210"
-                                className="w-full border rounded-lg p-3"
-                                onChange={e => setFormData({...formData, mobile: e.target.value})}
-                             />
-                             <p className="text-xs text-gray-500 mt-1">We will check for linked UPI/Bank accounts.</p>
-                        </div>
-                    )}
-
-                    {transferType === 'UPI' && (
-                        <div>
-                             <label className="block text-sm font-medium text-gray-700 mb-1">UPI ID</label>
-                             <input 
-                                required
-                                type="text" 
-                                placeholder="user@upi"
-                                className="w-full border rounded-lg p-3"
-                                onChange={e => setFormData({...formData, upiId: e.target.value})}
-                             />
-                        </div>
-                    )}
-
-                    <button disabled={loading} className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 flex justify-center">
-                        {loading ? <Loader2 className="animate-spin" /> : 'Verify & Continue'}
-                    </button>
-                </form>
-            )}
-
-            {/* Step 2: Amount & Pay */}
-            {step === 2 && (
-                <div className="space-y-4 animate-in slide-in-from-bottom-4">
-                    <div className="bg-green-50 p-3 rounded border border-green-100 text-sm text-green-800">
-                        <div className="flex items-center gap-2 mb-1">
-                            <CheckCircle size={16} className="text-green-600" />
-                            <span className="font-bold">Beneficiary Verified</span>
-                        </div>
-                        <div className="pl-6">
-                            <p>Name: <strong>{verifiedName}</strong></p>
-                            {transferType === 'BANK' && <p className="text-xs">A/c: XXXX{formData.accountNo.slice(-4)} | IFSC: {formData.ifsc}</p>}
-                            {transferType === 'MOBILE' && <p className="text-xs">Mob: {formData.mobile}</p>}
-                            {transferType === 'UPI' && <p className="text-xs">UPI: {formData.upiId}</p>}
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Transfer Amount</label>
-                        <div className="relative">
-                             <span className="absolute left-3 top-3 text-gray-500">₹</span>
-                             <input 
-                                autoFocus
-                                type="number" 
-                                value={formData.amount}
-                                onChange={e => setFormData({...formData, amount: e.target.value})}
-                                className="w-full border rounded-lg p-3 pl-8 text-lg font-semibold" 
-                                placeholder="0.00"
-                             />
-                        </div>
-                    </div>
-
-                    {formData.amount && parseFloat(formData.amount) > 0 && (
-                         <PaymentSummary amount={parseFloat(formData.amount)} />
-                    )}
-
-                    <div className="flex gap-3">
-                        <button 
-                            type="button"
-                            onClick={() => setStep(1)}
-                            className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-200"
-                        >
-                            Back
-                        </button>
-                        <button 
-                            onClick={handlePay}
-                            disabled={loading || !formData.amount || parseFloat(formData.amount) <= 0} 
-                            className="flex-[2] bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 flex justify-center items-center gap-2"
-                        >
-                            {loading ? <Loader2 className="animate-spin"/> : 'Confirm & Pay'}
-                        </button>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-};
-
-const CreditCardFlow = ({ onSuccess, processPayment }: FlowProps) => {
-    const [step, setStep] = useState(1);
-    const [loading, setLoading] = useState(false);
-    const [formData, setFormData] = useState({ 
-        provider: '', 
-        number: '', 
-        amount: '', 
-        name: 'Rajesh Kumar', // Simulated
-        billAmount: '12,450.00',
-        minDue: '850.00',
-        dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN')
-    });
-  
-    const handleFetch = (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!formData.provider || formData.number.length < 16) {
-          // Basic validation
-          return; 
-      }
-      setLoading(true);
-      // Simulate API call
-      setTimeout(() => {
-          setLoading(false);
-          setStep(2);
-          setFormData(prev => ({ ...prev, amount: prev.billAmount.replace(/,/g, '') }));
-      }, 1500);
-    };
-  
-    const handlePay = async () => {
-        setLoading(true);
-        const amountNum = parseFloat(formData.amount);
-        const charge = amountNum * SERVICE_CHARGE_PERCENT;
-        const total = amountNum + charge;
-
-        const success = await processPayment(total);
-        
-        if (success) {
-            onSuccess({
-                Service: 'Credit Card Bill Payment',
-                Provider: formData.provider,
-                CardNumber: `XXXX-XXXX-XXXX-${formData.number.slice(-4)}`,
-                Name: formData.name,
-                BaseAmount: `₹${parseFloat(formData.amount).toFixed(2)}`,
-                ServiceCharge: `₹${charge.toFixed(2)}`,
-                TotalPaid: `₹${total.toFixed(2)}`,
-                PaymentMode: 'Wallet',
-                Status: 'Success',
-                TransactionID: 'CC' + Math.floor(Math.random() * 10000000)
-            });
-        }
-        setLoading(false);
-    };
-  
-    return (
-      <div>
-          {step === 1 && (
-              <form onSubmit={handleFetch} className="space-y-4">
-                  <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Select Bank / Card Provider</label>
-                      <select 
-                          required 
-                          className="w-full border rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500"
-                          onChange={e => setFormData({...formData, provider: e.target.value})}
-                      >
-                          <option value="">-- Select Bank --</option>
-                          {CC_PROVIDERS.map(b => <option key={b} value={b}>{b}</option>)}
-                      </select>
-                  </div>
-                  <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Credit Card Number</label>
-                      <div className="relative">
-                          <CreditCard className="absolute left-3 top-3 text-gray-400" size={20} />
-                          <input 
-                              required 
-                              type="text" 
-                              maxLength={16}
-                              placeholder="XXXX XXXX XXXX XXXX"
-                              className="w-full border rounded-lg p-3 pl-10 outline-none focus:ring-2 focus:ring-blue-500"
-                              onChange={e => {
-                                  const val = e.target.value.replace(/\D/g, '');
-                                  setFormData({...formData, number: val});
-                              }}
-                              value={formData.number}
-                          />
-                      </div>
-                  </div>
-                  <button disabled={loading} className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 flex justify-center">
-                      {loading ? <Loader2 className="animate-spin" /> : 'Fetch Bill'}
-                  </button>
-              </form>
-          )}
-  
-          {step === 2 && (
-              <div className="space-y-4 animate-in slide-in-from-bottom-4">
-                   {/* Bill Details Card */}
-                   <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                      <div className="flex items-center gap-2 mb-3 text-blue-800 border-b border-blue-200 pb-2">
-                           <CheckCircle size={16} /> <span className="font-bold text-sm">Bill Fetched Successfully</span>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-y-2 text-sm">
-                          <div className="text-gray-500">Card Holder</div>
-                          <div className="font-semibold text-gray-900 text-right">{formData.name}</div>
-                          
-                          <div className="text-gray-500">Due Date</div>
-                          <div className="font-semibold text-red-600 text-right">{formData.dueDate}</div>
-  
-                          <div className="text-gray-500">Min Amount Due</div>
-                          <div className="font-semibold text-gray-900 text-right">₹{formData.minDue}</div>
-                      </div>
-                      
-                      <div className="flex justify-between border-t border-blue-200 pt-2 mt-2">
-                          <span className="text-gray-800 font-bold">Total Amount Due</span>
-                          <span className="text-xl font-bold text-blue-700">₹{formData.billAmount}</span>
-                      </div>
-                   </div>
-  
-                   {/* Payment Input */}
-                   <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Enter Payment Amount</label>
-                      <div className="relative">
-                           <span className="absolute left-3 top-3 text-gray-500">₹</span>
-                           <input 
-                              type="number" 
-                              value={formData.amount}
-                              onChange={e => setFormData({...formData, amount: e.target.value})}
-                              className="w-full border rounded-lg p-3 pl-8 font-bold text-lg" 
-                           />
-                      </div>
-                      <div className="flex gap-2 mt-2">
-                          <button type="button" onClick={() => setFormData({...formData, amount: formData.billAmount.replace(/,/g, '')})} className="text-xs bg-gray-100 px-2 py-1 rounded hover:bg-gray-200">Pay Total</button>
-                          <button type="button" onClick={() => setFormData({...formData, amount: formData.minDue.replace(/,/g, '')})} className="text-xs bg-gray-100 px-2 py-1 rounded hover:bg-gray-200">Pay Minimum</button>
-                      </div>
-                   </div>
-  
-                   {formData.amount && parseFloat(formData.amount) > 0 && (
-                       <PaymentSummary amount={parseFloat(formData.amount)} />
-                   )}
-
-                   <button 
-                      onClick={handlePay}
-                      disabled={loading || !formData.amount} 
-                      className="w-full bg-blue-800 text-white py-3 rounded-lg font-bold hover:bg-blue-900 flex justify-center items-center gap-2"
-                  >
-                      {loading ? <Loader2 className="animate-spin"/> : `Pay Now`}
-                  </button>
-              </div>
-          )}
-      </div>
-    );
-};
-
-// --- MAIN COMPONENT ---
 
 const ServiceModal: React.FC<ServiceModalProps> = ({ service, onClose, userUid, currentBalance }) => {
   const [successData, setSuccessData] = useState<any>(null);
-  const [error, setError] = useState('');
 
   useEffect(() => {
-    setSuccessData(null);
-    setError('');
+    if (service) {
+        setSuccessData(null);
+    }
   }, [service]);
 
   if (!service) return null;
 
-  const processWalletDeduction = async (amount: number): Promise<boolean> => {
-    setError('');
+  const processPayment = async (amount: number): Promise<boolean> => {
     if (currentBalance < amount) {
-        setError(`Insufficient Wallet Balance. Required: ₹${amount.toFixed(2)}, Available: ₹${currentBalance.toFixed(2)}`);
+        alert("Insufficient Wallet Balance! Please add money to wallet.");
         return false;
     }
 
     try {
         const balanceRef = ref(db, `users/${userUid}/balance`);
         await runTransaction(balanceRef, (current) => {
-            if (current === null) return current; 
-            if (current < amount) return; 
+            if (current === null) return current;
+            if (current < amount) throw new Error("Insufficient funds");
             return current - amount;
         });
+
+        // 0.5% Commission Logic
+        const commRef = ref(db, `users/${userUid}/commission`);
+        await runTransaction(commRef, (current) => {
+            return (current || 0) + (amount * 0.005);
+        });
+
         return true;
-    } catch (e) {
-        console.error("Transaction failed", e);
-        setError("Transaction failed. Please try again.");
+    } catch (error: any) {
+        console.error("Payment Failed", error);
+        alert(error.message || "Transaction failed");
         return false;
     }
   };
 
-  const renderContent = () => {
-    if (successData) {
-      return <Receipt data={successData} onDownload={() => alert("Receipt Downloaded!")} />;
-    }
+  const handleSuccess = (data: any) => {
+      setSuccessData(data);
+  };
 
-    // Categories Logic
-    if (service.id === 'mob' || service.id === 'dth') {
-        return <MobileDthRecharge type={service.id === 'mob' ? 'mobile' : 'dth'} onSuccess={setSuccessData} processPayment={processWalletDeduction} />;
-    }
-    if (service.id === 'aeps' || service.id === 'matm') {
-        return <AepsFlow onSuccess={setSuccessData} />;
-    }
-    if (service.id === 'dmt') {
-        return <DMTFlow onSuccess={setSuccessData} processPayment={processWalletDeduction} />;
-    }
-    if (service.id === 'cc') {
-        return <CreditCardFlow onSuccess={setSuccessData} processPayment={processWalletDeduction} />;
-    }
-    if (service.id === 'subscription') {
-        return <SubscriptionFlow onSuccess={setSuccessData} processPayment={processWalletDeduction} />;
-    }
-    if (service.category === 'TRAVEL') {
-        return <TravelFlow type={service.title.split(' ')[0]} onSuccess={setSuccessData} processPayment={processWalletDeduction} />;
-    }
-    // Fallback for all BBPS
-    return <BillPaymentFlow category={service.id.toUpperCase()} onSuccess={setSuccessData} processPayment={processWalletDeduction} />;
+  const getHeaderColor = () => {
+    return 'bg-blue-700'; // Updated to fixed Blue as requested previously
+  };
+
+  const renderContent = () => {
+      if (successData) {
+          return <Receipt data={successData} onDownload={() => alert("Receipt Downloaded!")} />;
+      }
+
+      switch (service.category) {
+          case 'BANKING':
+              if (service.id === 'cc') return <CreditCardFlow onSuccess={handleSuccess} processPayment={processPayment} />;
+              if (service.id === 'dmt') return <MoneyTransferFlow onSuccess={handleSuccess} processPayment={processPayment} />;
+              if (service.id === 'aeps') return <AepsFlow onSuccess={handleSuccess} />;
+              if (service.id === 'matm') return <MicroAtmFlow onSuccess={handleSuccess} processPayment={processPayment} userUid={userUid} />;
+              return <div className="p-8 text-center text-gray-500">Service Coming Soon</div>;
+          
+          case 'BBPS':
+              if (service.id === 'mob') return <MobileDthRecharge type="mobile" onSuccess={handleSuccess} processPayment={processPayment} />;
+              if (service.id === 'dth') return <MobileDthRecharge type="dth" onSuccess={handleSuccess} processPayment={processPayment} />;
+              if (service.id === 'subscription') return <SubscriptionFlow onSuccess={handleSuccess} processPayment={processPayment} />;
+              return <BillPaymentFlow service={service} onSuccess={handleSuccess} processPayment={processPayment} />;
+
+          case 'TRAVEL':
+              if (service.id === 'flight') return <TravelFlow type="FLIGHT" onSuccess={handleSuccess} processPayment={processPayment} />;
+              if (service.id === 'bus') return <TravelFlow type="BUS" onSuccess={handleSuccess} processPayment={processPayment} />;
+              if (service.id === 'train') return <TravelFlow type="TRAIN" onSuccess={handleSuccess} processPayment={processPayment} />;
+              if (service.id === 'hotel') return <TravelFlow type="HOTEL" onSuccess={handleSuccess} processPayment={processPayment} />;
+              if (service.id === 'holiday') return <TravelFlow type="HOLIDAY" onSuccess={handleSuccess} processPayment={processPayment} />;
+              return <div className="p-8 text-center text-gray-500">Service Coming Soon</div>;
+
+          default:
+              return <div className="p-8 text-center text-gray-500">Service Coming Soon</div>;
+      }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        
-        {/* Header */}
-        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center sticky top-0">
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-lg ${service.color.split(' ')[0]}`}>
-                <service.icon className={`w-6 h-6 ${service.color.split(' ')[1]}`} />
-            </div>
-            <h2 className="text-xl font-bold text-gray-800">{service.title}</h2>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition">
-            <X size={20} className="text-gray-500" />
-          </button>
+      <div className={`bg-white w-full rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transition-all duration-300 ${service.category === 'TRAVEL' ? 'max-w-4xl' : 'max-w-lg'}`}>
+        <div className={`px-6 py-4 flex justify-between items-center text-white ${getHeaderColor()}`}>
+           <div className="flex items-center gap-3">
+               <div className="bg-white/20 p-2 rounded-full">
+                   <service.icon size={20} className="text-white" />
+               </div>
+               <h2 className="text-lg font-bold">{service.title}</h2>
+           </div>
+           <button onClick={onClose} className="hover:bg-white/20 p-1 rounded-full transition">
+               <X size={24} />
+           </button>
         </div>
 
-        {/* Body */}
         <div className="p-6 overflow-y-auto custom-scrollbar">
-          {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2 mb-4">
-                  <AlertTriangle size={20} />
-                  <span className="text-sm font-medium">{error}</span>
-              </div>
-          )}
-          {renderContent()}
+            {renderContent()}
         </div>
-
-        {/* Footer */}
-        {!successData && (
-            <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 text-center flex justify-between items-center">
-                <div className="flex items-center gap-2 text-sm text-gray-600 font-medium">
-                    <Wallet size={16} className="text-blue-600"/>
-                    Bal: ₹{currentBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                </div>
-                <p className="text-xs text-gray-400 flex items-center gap-1">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"/> 
-                    Secure
-                </p>
-            </div>
-        )}
       </div>
     </div>
   );

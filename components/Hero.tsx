@@ -32,6 +32,7 @@ const Hero: React.FC<HeroProps> = ({ onLoginClick }) => {
                 Partner Login <ArrowRight className="w-5 h-5" />
               </button>
               <button 
+                onClick={() => document.getElementById('contact-form')?.scrollIntoView({ behavior: 'smooth' })}
                 className="bg-transparent border-2 border-blue-300 text-white font-bold py-4 px-10 rounded-full hover:bg-white/10 transition text-lg transform hover:-translate-y-1"
               >
                 Contact Sales

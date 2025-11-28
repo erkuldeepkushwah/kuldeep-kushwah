@@ -1,18 +1,37 @@
 import React, { useState, useEffect } from 'react';
-import { ref, onValue, update, runTransaction, remove } from 'firebase/database';
+import { ref, onValue, update, runTransaction, remove, set } from 'firebase/database';
 import { db } from '../firebaseConfig';
-import { PaymentRequest } from '../types';
-import { LogOut, Users, RefreshCw, CheckCircle, XCircle, Wallet, Trash2 } from 'lucide-react';
+import { PaymentRequest, Enquiry } from '../types';
+import { LogOut, Users, RefreshCw, CheckCircle, XCircle, Wallet, Trash2, MessageSquare, UserPlus, X, Loader2 } from 'lucide-react';
+import { initializeApp, deleteApp } from 'firebase/app';
+import { getAuth, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+
+// Need config to initialize secondary app for user creation without logging out admin
+const firebaseConfig = {
+  apiKey: "AIzaSyDdJTg0SF66ksdSaJnrWH8dd0ei15M6yoA",
+  authDomain: "paypoint-e14c9.firebaseapp.com",
+  databaseURL: "https://paypoint-e14c9-default-rtdb.firebaseio.com",
+  projectId: "paypoint-e14c9",
+  storageBucket: "paypoint-e14c9.firebasestorage.app",
+  messagingSenderId: "970332210587",
+  appId: "1:970332210587:web:10bedd6bf179372cc78d3e"
+};
 
 interface AdminDashboardProps {
   onLogout: () => void;
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'requests' | 'users'>('requests');
+  const [activeTab, setActiveTab] = useState<'requests' | 'users' | 'enquiries'>('requests');
   const [requests, setRequests] = useState<PaymentRequest[]>([]);
   const [users, setUsers] = useState<any[]>([]);
+  const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Add User State
+  const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+  const [newUser, setNewUser] = useState({ name: '', mobile: '', password: '' });
+  const [addUserLoading, setAddUserLoading] = useState(false);
 
   // Fetch Data
   useEffect(() => {
@@ -45,9 +64,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
         setLoading(false);
     });
 
+    // Listen for Enquiries
+    const enqRef = ref(db, 'enquiries');
+    const enqUnsub = onValue(enqRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            const list = Object.values(data) as Enquiry[];
+            setEnquiries(list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+        } else {
+            setEnquiries([]);
+        }
+    });
+
     return () => {
         reqUnsub();
         userUnsub();
+        enqUnsub();
     };
   }, []);
 
@@ -107,6 +139,73 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
           alert(`Failed to delete user: ${error.message}`);
       }
   };
+  
+  const handleDeleteEnquiry = async (id: string) => {
+      if (!confirm("Delete this enquiry?")) return;
+      try {
+          await remove(ref(db, `enquiries/${id}`));
+      } catch (e) {
+          alert("Failed to delete enquiry");
+      }
+  };
+
+  const handleAddUser = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setAddUserLoading(true);
+
+      // Validate
+      if (newUser.mobile.length < 10) {
+          alert("Invalid mobile number");
+          setAddUserLoading(false);
+          return;
+      }
+      if (newUser.password.length < 6) {
+          alert("Password must be at least 6 chars");
+          setAddUserLoading(false);
+          return;
+      }
+
+      // Initialize a secondary app to create user without logging out admin
+      let secondaryApp: any;
+      try {
+          secondaryApp = initializeApp(firebaseConfig, "Secondary");
+          const secondaryAuth = getAuth(secondaryApp);
+          const email = `${newUser.mobile}@sparkpe.in`;
+
+          // Create User in Auth
+          const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, newUser.password);
+          const user = userCredential.user;
+
+          // Update Profile
+          await updateProfile(user, { displayName: newUser.name });
+
+          // Create DB Entry (Using main app's db instance)
+          await set(ref(db, 'users/' + user.uid), {
+                uid: user.uid,
+                displayName: newUser.name,
+                mobile: newUser.mobile,
+                email: email,
+                balance: 0.00,
+                commission: 0.00,
+                createdAt: new Date().toISOString()
+          });
+
+          alert("User Created Successfully!");
+          setIsAddUserOpen(false);
+          setNewUser({ name: '', mobile: '', password: '' });
+
+      } catch (error: any) {
+          console.error("Add User Error", error);
+          if (error.code === 'auth/email-already-in-use') {
+              alert("User already exists with this mobile number.");
+          } else {
+              alert("Failed to create user: " + error.message);
+          }
+      } finally {
+          if (secondaryApp) await deleteApp(secondaryApp);
+          setAddUserLoading(false);
+      }
+  };
 
   // Helper to get user name by UID
   const getUserName = (uid: string) => {
@@ -134,7 +233,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
         <div className="max-w-7xl mx-auto px-4 py-8">
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-gray-500 text-sm font-semibold uppercase">Pending Requests</h3>
@@ -155,28 +254,43 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                 </div>
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-gray-500 text-sm font-semibold uppercase">Total Wallet Holding</h3>
+                        <h3 className="text-gray-500 text-sm font-semibold uppercase">Total Wallet</h3>
                         <div className="p-2 bg-green-100 text-green-600 rounded-full"><Wallet size={20} /></div>
                     </div>
                     <div className="text-3xl font-bold text-gray-800">
                         ₹{users.reduce((acc, curr) => acc + (Number(curr.balance) || 0), 0).toFixed(2)}
                     </div>
                 </div>
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-gray-500 text-sm font-semibold uppercase">New Enquiries</h3>
+                        <div className="p-2 bg-purple-100 text-purple-600 rounded-full"><MessageSquare size={20} /></div>
+                    </div>
+                    <div className="text-3xl font-bold text-gray-800">
+                        {enquiries.length}
+                    </div>
+                </div>
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-4 mb-6 border-b border-gray-300">
+            <div className="flex gap-4 mb-6 border-b border-gray-300 overflow-x-auto">
                 <button 
                     onClick={() => setActiveTab('requests')}
-                    className={`pb-3 px-4 font-semibold text-sm transition ${activeTab === 'requests' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`pb-3 px-4 font-semibold text-sm transition whitespace-nowrap ${activeTab === 'requests' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
                 >
                     Balance Requests
                 </button>
                 <button 
                     onClick={() => setActiveTab('users')}
-                    className={`pb-3 px-4 font-semibold text-sm transition ${activeTab === 'users' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`pb-3 px-4 font-semibold text-sm transition whitespace-nowrap ${activeTab === 'users' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
                 >
                     All Retailers
+                </button>
+                <button 
+                    onClick={() => setActiveTab('enquiries')}
+                    className={`pb-3 px-4 font-semibold text-sm transition whitespace-nowrap ${activeTab === 'enquiries' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                    Enquiries
                 </button>
             </div>
 
@@ -247,6 +361,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
             {/* Tab Content: USERS */}
             {activeTab === 'users' && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                     {/* Toolbar */}
+                     <div className="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+                        <h3 className="font-bold text-gray-700">Retailer Management</h3>
+                        <button 
+                            onClick={() => setIsAddUserOpen(true)}
+                            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 flex items-center gap-2"
+                        >
+                            <UserPlus size={16} /> Add New Retailer
+                        </button>
+                     </div>
+
                      <table className="w-full text-left border-collapse">
                         <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
                             <tr>
@@ -284,7 +409,103 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                     </table>
                 </div>
             )}
+
+            {/* Tab Content: ENQUIRIES */}
+            {activeTab === 'enquiries' && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <table className="w-full text-left border-collapse">
+                        <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                            <tr>
+                                <th className="p-4">Date</th>
+                                <th className="p-4">Name</th>
+                                <th className="p-4">Mobile</th>
+                                <th className="p-4">Message</th>
+                                <th className="p-4 text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 text-sm">
+                            {enquiries.map(enq => (
+                                <tr key={enq.id} className="hover:bg-gray-50">
+                                    <td className="p-4 text-gray-500 whitespace-nowrap">{enq.date}</td>
+                                    <td className="p-4 font-medium text-gray-800">{enq.name}</td>
+                                    <td className="p-4 text-blue-600 font-semibold">{enq.mobile}</td>
+                                    <td className="p-4 text-gray-600 max-w-xs truncate" title={enq.message}>{enq.message}</td>
+                                    <td className="p-4 text-right">
+                                        <button 
+                                            onClick={() => handleDeleteEnquiry(enq.id)}
+                                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition"
+                                            title="Delete Enquiry"
+                                        >
+                                            <Trash2 size={18} />
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                            {enquiries.length === 0 && (
+                                <tr>
+                                    <td colSpan={5} className="p-8 text-center text-gray-400">No enquiries found.</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            )}
         </div>
+
+        {/* Add User Modal */}
+        {isAddUserOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+                    <div className="bg-blue-700 px-6 py-4 flex justify-between items-center text-white">
+                        <h3 className="font-bold text-lg flex items-center gap-2"><UserPlus size={20}/> Add New Retailer</h3>
+                        <button onClick={() => setIsAddUserOpen(false)} className="hover:text-gray-200"><X size={20}/></button>
+                    </div>
+                    <form onSubmit={handleAddUser} className="p-6 space-y-4">
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">Full Name</label>
+                            <input 
+                                type="text" 
+                                required
+                                value={newUser.name}
+                                onChange={(e) => setNewUser({...newUser, name: e.target.value})}
+                                className="w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Enter retailer name"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">Mobile Number</label>
+                            <input 
+                                type="text" 
+                                required
+                                maxLength={10}
+                                value={newUser.mobile}
+                                onChange={(e) => setNewUser({...newUser, mobile: e.target.value})}
+                                className="w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="10 digit number"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">Set Password</label>
+                            <input 
+                                type="text" 
+                                required
+                                minLength={6}
+                                value={newUser.password}
+                                onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                                className="w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Min 6 chars"
+                            />
+                        </div>
+                        <button 
+                            disabled={addUserLoading}
+                            className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 flex justify-center items-center gap-2"
+                        >
+                            {addUserLoading ? <Loader2 className="animate-spin" /> : 'Create Account'}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        )}
     </div>
   );
 };

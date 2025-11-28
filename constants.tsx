@@ -2,7 +2,7 @@ import {
   CreditCard, Banknote, Fingerprint, Smartphone, 
   Tv, Lightbulb, Flame, Wifi, 
   Car, Landmark, Shield, Train, Plane, Bus, Hotel, 
-  Briefcase, PlayCircle
+  Briefcase, PlayCircle, Palmtree
 } from "lucide-react";
 import { ServiceItem } from "./types";
 
@@ -15,7 +15,7 @@ export const SERVICES: ServiceItem[] = [
 
   // BBPS
   { id: 'mob', title: 'MOBILE RECHARGE', icon: Smartphone, color: 'bg-purple-100 text-purple-600', category: 'BBPS' },
-  { id: 'dth', title: 'DTH BOOKING', icon: Tv, color: 'bg-pink-100 text-pink-600', category: 'BBPS' },
+  { id: 'dth', title: 'DTH', icon: Tv, color: 'bg-pink-100 text-pink-600', category: 'BBPS' },
   { id: 'elec', title: 'ELECTRICITY BILL', icon: Lightbulb, color: 'bg-yellow-100 text-yellow-600', category: 'BBPS' },
   { id: 'gas', title: 'GAS CYLINDER', icon: Flame, color: 'bg-orange-100 text-orange-600', category: 'BBPS' },
   { id: 'broadband', title: 'BROADBAND', icon: Wifi, color: 'bg-indigo-100 text-indigo-600', category: 'BBPS' },
@@ -25,8 +25,9 @@ export const SERVICES: ServiceItem[] = [
   { id: 'subscription', title: 'OTT SUBSCRIPTION', icon: PlayCircle, color: 'bg-red-50 text-red-600', category: 'BBPS' },
 
   // Travel
-  { id: 'flight', title: 'FLIGHT BOOKING', icon: Plane, color: 'bg-blue-100 text-blue-500', category: 'TRAVEL' },
-  { id: 'train', title: 'TRAIN BOOKING', icon: Train, color: 'bg-orange-100 text-orange-600', category: 'TRAVEL' },
-  { id: 'bus', title: 'BUS BOOKING', icon: Bus, color: 'bg-red-100 text-red-500', category: 'TRAVEL' },
-  { id: 'hotel', title: 'HOTEL BOOKING', icon: Hotel, color: 'bg-purple-100 text-purple-500', category: 'TRAVEL' },
+  { id: 'flight', title: 'FLIGHT', icon: Plane, color: 'bg-blue-100 text-blue-500', category: 'TRAVEL' },
+  { id: 'train', title: 'TRAIN', icon: Train, color: 'bg-orange-100 text-orange-600', category: 'TRAVEL' },
+  { id: 'bus', title: 'BUS', icon: Bus, color: 'bg-red-100 text-red-500', category: 'TRAVEL' },
+  { id: 'hotel', title: 'HOTEL', icon: Hotel, color: 'bg-purple-100 text-purple-500', category: 'TRAVEL' },
+  { id: 'holiday', title: 'HOLIDAY PACKAGES', icon: Palmtree, color: 'bg-teal-100 text-teal-600', category: 'TRAVEL' },
 ];
