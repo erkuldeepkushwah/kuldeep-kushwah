@@ -2,7 +2,7 @@ import {
   CreditCard, Banknote, Fingerprint, Smartphone, 
   Tv, Lightbulb, Flame, Wifi, 
   Car, Landmark, Shield, Train, Plane, Bus, Hotel, 
-  Briefcase, PlayCircle, Palmtree
+  Briefcase, PlayCircle, Palmtree, Popcorn, Building2, Globe
 } from "lucide-react";
 import { ServiceItem } from "./types";
 
@@ -12,6 +12,7 @@ export const SERVICES: ServiceItem[] = [
   { id: 'dmt', title: 'MONEY TRANSFER', icon: Banknote, color: 'bg-green-100 text-green-600', category: 'BANKING' },
   { id: 'aeps', title: 'AEPS PAYMENT', icon: Fingerprint, color: 'bg-blue-100 text-blue-600', category: 'BANKING' },
   { id: 'matm', title: 'MICRO ATM', icon: Briefcase, color: 'bg-teal-100 text-teal-600', category: 'BANKING' },
+  { id: 'bank', title: 'BANK', icon: Building2, color: 'bg-indigo-100 text-indigo-600', category: 'BANKING' },
 
   // BBPS
   { id: 'mob', title: 'MOBILE RECHARGE', icon: Smartphone, color: 'bg-purple-100 text-purple-600', category: 'BBPS' },
@@ -21,8 +22,9 @@ export const SERVICES: ServiceItem[] = [
   { id: 'broadband', title: 'BROADBAND', icon: Wifi, color: 'bg-indigo-100 text-indigo-600', category: 'BBPS' },
   { id: 'fastag', title: 'FASTAG', icon: Car, color: 'bg-gray-200 text-gray-700', category: 'BBPS' },
   { id: 'loan', title: 'LOAN EMI', icon: Landmark, color: 'bg-green-100 text-green-700', category: 'BBPS' },
-  { id: 'ins', title: 'INSURANCE', icon: Shield, color: 'bg-red-100 text-red-600', category: 'BBPS' },
   { id: 'subscription', title: 'OTT SUBSCRIPTION', icon: PlayCircle, color: 'bg-red-50 text-red-600', category: 'BBPS' },
+  { id: 'movie', title: 'MOVIE TICKETS', icon: Popcorn, color: 'bg-rose-100 text-rose-600', category: 'BBPS' },
+  { id: 'visa', title: 'VISA SERVICES', icon: Globe, color: 'bg-indigo-100 text-indigo-600', category: 'BBPS' },
 
   // Travel
   { id: 'flight', title: 'FLIGHT', icon: Plane, color: 'bg-blue-100 text-blue-500', category: 'TRAVEL' },

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ref, onValue, update, runTransaction, remove, set } from 'firebase/database';
+import { ref, onValue, update, runTransaction, remove, set, push } from 'firebase/database';
 import { db } from '../firebaseConfig';
-import { PaymentRequest, Enquiry } from '../types';
-import { LogOut, Users, RefreshCw, CheckCircle, XCircle, Wallet, Trash2, MessageSquare, UserPlus, X, Loader2 } from 'lucide-react';
+import { PaymentRequest, Enquiry, Movie } from '../types';
+import { LogOut, Users, RefreshCw, CheckCircle, XCircle, Wallet, Trash2, MessageSquare, UserPlus, X, Loader2, Film, Edit, Plus } from 'lucide-react';
 import { initializeApp, deleteApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 
@@ -22,16 +22,22 @@ interface AdminDashboardProps {
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'requests' | 'users' | 'enquiries'>('requests');
+  const [activeTab, setActiveTab] = useState<'requests' | 'users' | 'enquiries' | 'movies'>('requests');
   const [requests, setRequests] = useState<PaymentRequest[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
+  const [movies, setMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Add User State
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [newUser, setNewUser] = useState({ name: '', mobile: '', password: '' });
   const [addUserLoading, setAddUserLoading] = useState(false);
+
+  // Movie Management State
+  const [isMovieModalOpen, setIsMovieModalOpen] = useState(false);
+  const [currentMovie, setCurrentMovie] = useState<Movie>({ id: '', title: '', poster: '', language: 'Hindi', format: '2D' });
+  const [movieLoading, setMovieLoading] = useState(false);
 
   // Fetch Data
   useEffect(() => {
@@ -76,10 +82,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
         }
     });
 
+    // Listen for Movies
+    const movieRef = ref(db, 'movies');
+    const movieUnsub = onValue(movieRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            const list = Object.values(data) as Movie[];
+            setMovies(list);
+        } else {
+            setMovies([]);
+        }
+    });
+
     return () => {
         reqUnsub();
         userUnsub();
         enqUnsub();
+        movieUnsub();
     };
   }, []);
 
@@ -207,6 +226,37 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       }
   };
 
+  // Movie Functions
+  const handleSaveMovie = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setMovieLoading(true);
+      try {
+          const movieId = currentMovie.id || push(ref(db, 'movies')).key;
+          await set(ref(db, `movies/${movieId}`), {
+              ...currentMovie,
+              id: movieId
+          });
+          setIsMovieModalOpen(false);
+          setCurrentMovie({ id: '', title: '', poster: '', language: 'Hindi', format: '2D' });
+      } catch (error) {
+          alert("Failed to save movie");
+      } finally {
+          setMovieLoading(false);
+      }
+  };
+
+  const handleDeleteMovie = async (id: string) => {
+      if(!confirm("Delete this movie?")) return;
+      try {
+          await remove(ref(db, `movies/${id}`));
+      } catch(e) { alert("Delete failed"); }
+  };
+
+  const openEditMovie = (movie: Movie) => {
+      setCurrentMovie(movie);
+      setIsMovieModalOpen(true);
+  };
+
   // Helper to get user name by UID
   const getUserName = (uid: string) => {
       const user = users.find(u => u.uid === uid);
@@ -254,11 +304,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                 </div>
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-gray-500 text-sm font-semibold uppercase">Total Wallet</h3>
-                        <div className="p-2 bg-green-100 text-green-600 rounded-full"><Wallet size={20} /></div>
+                        <h3 className="text-gray-500 text-sm font-semibold uppercase">Movies Live</h3>
+                        <div className="p-2 bg-rose-100 text-rose-600 rounded-full"><Film size={20} /></div>
                     </div>
                     <div className="text-3xl font-bold text-gray-800">
-                        ₹{users.reduce((acc, curr) => acc + (Number(curr.balance) || 0), 0).toFixed(2)}
+                        {movies.length}
                     </div>
                 </div>
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
@@ -285,6 +335,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                     className={`pb-3 px-4 font-semibold text-sm transition whitespace-nowrap ${activeTab === 'users' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
                 >
                     All Retailers
+                </button>
+                <button 
+                    onClick={() => setActiveTab('movies')}
+                    className={`pb-3 px-4 font-semibold text-sm transition whitespace-nowrap ${activeTab === 'movies' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                    Movies
                 </button>
                 <button 
                     onClick={() => setActiveTab('enquiries')}
@@ -410,6 +466,41 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                 </div>
             )}
 
+            {/* Tab Content: MOVIES */}
+            {activeTab === 'movies' && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+                        <h3 className="font-bold text-gray-700">Movies Management</h3>
+                        <button 
+                            onClick={() => { setCurrentMovie({ id: '', title: '', poster: '', language: 'Hindi', format: '2D' }); setIsMovieModalOpen(true); }}
+                            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 flex items-center gap-2"
+                        >
+                            <Plus size={16} /> Add Movie
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 p-6">
+                        {movies.map(movie => (
+                            <div key={movie.id} className="border border-gray-200 rounded-xl overflow-hidden group hover:shadow-lg transition bg-white">
+                                <div className="h-48 overflow-hidden relative">
+                                    <img src={movie.poster} alt={movie.title} className="w-full h-full object-cover group-hover:scale-105 transition" />
+                                    <div className="absolute top-2 right-2 flex gap-2">
+                                        <button onClick={() => openEditMovie(movie)} className="bg-white p-1.5 rounded-full shadow hover:text-blue-600"><Edit size={14}/></button>
+                                        <button onClick={() => handleDeleteMovie(movie.id)} className="bg-white p-1.5 rounded-full shadow hover:text-red-600"><Trash2 size={14}/></button>
+                                    </div>
+                                </div>
+                                <div className="p-3">
+                                    <h4 className="font-bold text-gray-800 truncate">{movie.title}</h4>
+                                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                                        <span>{movie.language}</span>
+                                        <span className="bg-gray-100 px-2 rounded font-bold">{movie.format}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Tab Content: ENQUIRIES */}
             {activeTab === 'enquiries' && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -501,6 +592,78 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                             className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 flex justify-center items-center gap-2"
                         >
                             {addUserLoading ? <Loader2 className="animate-spin" /> : 'Create Account'}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        )}
+
+        {/* Add/Edit Movie Modal */}
+        {isMovieModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+                    <div className="bg-blue-700 px-6 py-4 flex justify-between items-center text-white">
+                        <h3 className="font-bold text-lg flex items-center gap-2"><Film size={20}/> {currentMovie.id ? 'Edit Movie' : 'Add New Movie'}</h3>
+                        <button onClick={() => setIsMovieModalOpen(false)} className="hover:text-gray-200"><X size={20}/></button>
+                    </div>
+                    <form onSubmit={handleSaveMovie} className="p-6 space-y-4">
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">Movie Title</label>
+                            <input 
+                                type="text" 
+                                required
+                                value={currentMovie.title}
+                                onChange={(e) => setCurrentMovie({...currentMovie, title: e.target.value})}
+                                className="w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="e.g. Pushpa 2"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">Poster Image URL</label>
+                            <input 
+                                type="text" 
+                                required
+                                value={currentMovie.poster}
+                                onChange={(e) => setCurrentMovie({...currentMovie, poster: e.target.value})}
+                                className="w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="https://..."
+                            />
+                        </div>
+                        <div className="flex gap-4">
+                            <div className="flex-1">
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">Language</label>
+                                <select 
+                                    className="w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                    value={currentMovie.language}
+                                    onChange={(e) => setCurrentMovie({...currentMovie, language: e.target.value})}
+                                >
+                                    <option>Hindi</option>
+                                    <option>English</option>
+                                    <option>Tamil</option>
+                                    <option>Telugu</option>
+                                    <option>Marathi</option>
+                                </select>
+                            </div>
+                            <div className="flex-1">
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">Format</label>
+                                <select 
+                                    className="w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                    value={currentMovie.format}
+                                    onChange={(e) => setCurrentMovie({...currentMovie, format: e.target.value})}
+                                >
+                                    <option>2D</option>
+                                    <option>3D</option>
+                                    <option>IMAX 2D</option>
+                                    <option>IMAX 3D</option>
+                                    <option>4DX</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button 
+                            disabled={movieLoading}
+                            className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 flex justify-center items-center gap-2"
+                        >
+                            {movieLoading ? <Loader2 className="animate-spin" /> : 'Save Movie'}
                         </button>
                     </form>
                 </div>

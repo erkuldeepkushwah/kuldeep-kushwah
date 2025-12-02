@@ -16,6 +16,7 @@ const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'LOGIN' | 'SIGNUP'>('LOGIN');
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
 
   // Contact Form State
@@ -29,6 +30,16 @@ const App: React.FC = () => {
     });
     return () => unsubscribe();
   }, []);
+
+  const openLogin = () => {
+    setAuthMode('LOGIN');
+    setIsLoginModalOpen(true);
+  };
+
+  const openRegister = () => {
+    setAuthMode('SIGNUP');
+    setIsLoginModalOpen(true);
+  };
 
   const scrollToSection = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
@@ -107,7 +118,7 @@ const App: React.FC = () => {
               <a href="#contact" onClick={(e) => scrollToSection(e, 'contact')} className="text-lg font-bold text-gray-700 hover:text-blue-800 transition-colors">Contact</a>
             </div>
             <button 
-              onClick={() => setIsLoginModalOpen(true)}
+              onClick={openLogin}
               className="bg-blue-800 text-white px-6 py-2.5 rounded-full font-semibold hover:bg-blue-900 transition shadow-lg shadow-blue-200 hover:-translate-y-0.5 transform"
             >
               Login
@@ -117,7 +128,7 @@ const App: React.FC = () => {
           <main className="flex-grow">
             {/* Home / Hero Section */}
             <div id="home" className="scroll-mt-20">
-              <Hero onLoginClick={() => setIsLoginModalOpen(true)} />
+              <Hero onLoginClick={openLogin} />
             </div>
             
             {/* Services Preview Section */}
@@ -220,7 +231,7 @@ const App: React.FC = () => {
                         Join the digital revolution. Sign up now and start earning more with SparkPe's comprehensive suite of B2B services.
                     </p>
                     <button 
-                        onClick={() => setIsLoginModalOpen(true)}
+                        onClick={openRegister}
                         className="bg-white text-blue-900 font-bold py-4 px-12 rounded-full hover:bg-blue-50 transition shadow-xl transform hover:-translate-y-1"
                     >
                         Join Now
@@ -293,6 +304,7 @@ const App: React.FC = () => {
             isOpen={isLoginModalOpen} 
             onClose={() => setIsLoginModalOpen(false)} 
             onAdminLogin={() => setIsAdminLoggedIn(true)}
+            initialState={authMode}
           />
         </div>
       )}

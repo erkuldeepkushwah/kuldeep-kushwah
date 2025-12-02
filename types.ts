@@ -37,3 +37,11 @@ export interface Enquiry {
   message: string;
   date: string;
 }
+
+export interface Movie {
+  id: string;
+  title: string;
+  poster: string;
+  language: string;
+  format: string; // 2D, 3D, IMAX
+}

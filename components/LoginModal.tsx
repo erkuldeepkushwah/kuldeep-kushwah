@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import { auth, db } from '../firebaseConfig';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, signOut } from 'firebase/auth';
@@ -8,15 +8,27 @@ interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAdminLogin: () => void;
+  initialState?: 'LOGIN' | 'SIGNUP';
 }
 
-const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onAdminLogin }) => {
-  const [isSignUp, setIsSignUp] = useState(false);
+const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onAdminLogin, initialState = 'LOGIN' }) => {
+  const [isSignUp, setIsSignUp] = useState(initialState === 'SIGNUP');
   const [name, setName] = useState('');
   const [userInput, setUserInput] = useState(''); 
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Sync state when modal opens or prop changes
+  useEffect(() => {
+    if (isOpen) {
+        setIsSignUp(initialState === 'SIGNUP');
+        setError('');
+        setName('');
+        setUserInput('');
+        setPassword('');
+    }
+  }, [isOpen, initialState]);
 
   if (!isOpen) return null;
 
